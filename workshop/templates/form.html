@@ -3,30 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roast a Video - Roast My Life</title>
+    <title>Create Quiz - Reka Quiz</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <header>
         <div class="header-content">
-            <h1>Roast My Life</h1>
-            <p>AI-powered gentle roasting with Reka Vision</p>
+            <h1>🎯 Reka Quiz</h1>
+            <p>AI-Powered Educational Quiz Generator</p>
         </div>
     </header>
 
     <nav>
         <ul>
             <li><a href="/">Home</a></li>
-            <li><a href="/form" class="active">Roast a Video</a></li>
+            <li><a href="/form" class="active">Create Quiz</a></li>
         </ul>
     </nav>
 
     <div class="container">
         <div class="form-section">
-            <h2>Select a Video to Roast</h2>
+            <h2>Create an Educational Quiz</h2>
             <p style="color: #403E34; margin-bottom: 2rem;">
-                Pick a video below and click <strong>Roast Video</strong>. We'll send it to the Vision
-                chat endpoint with a gentle roast prompt and display the model's playful commentary.
+                Select an educational video below to analyze and generate quiz questions. Our AI will extract key concepts and create comprehensive questions tailored to the content.
             </p>
 
             <div class="image-grid" id="videoGrid">
@@ -63,9 +62,6 @@
                 <button class="btn btn-success" id="quizBtn" onclick="generateQuiz()" disabled>
                     🎯 Generate Quiz
                 </button>
-                <button class="btn" id="processBtn" onclick="processVideo()" disabled>
-                    🔥 Roast Video
-                </button>
                 <button class="btn btn-secondary" id="watchBtn" onclick="watchVideo()" disabled>
                     ▶️ Watch Video
                 </button>
@@ -101,14 +97,9 @@
                 </div>
             </div>
 
-            <div class="spinner" id="spinner">
+            <div class="spinner" id="spinner" style="display: none;">
                 <div class="spinner-icon"></div>
-                <p>Summoning spicy (but kind) commentary...</p>
-            </div>
-
-            <div class="result-section" id="resultSection">
-                <h3>Roast Result</h3>
-                <div class="result-content" id="resultContent"></div>
+                <p>Processing...</p>
             </div>
         </div>
     </div>
@@ -210,14 +201,12 @@
 
           // Enable all buttons
           document.getElementById('analyzeBtn').disabled = false;
-          document.getElementById('processBtn').disabled = false;
 
           // Enable the watch button if URL is available
           const watchBtn = document.getElementById('watchBtn');
           watchBtn.disabled = !(selectedVideoUrl && selectedVideoUrl.trim() !== '');
 
           // Hide previous results and errors
-          document.getElementById('resultSection').classList.remove('show');
           document.getElementById('analysisSection').classList.remove('show');
           document.getElementById('quizSection').classList.remove('show');
           document.getElementById('errorMessage').classList.remove('show');
@@ -521,48 +510,6 @@
           resultsDiv.innerHTML = html || '<div class="question-text">No quiz questions available</div>';
         }
 
-        // Process the selected video by calling the backend
-        async function processVideo() {
-          if (!selectedVideoId) {
-            showError('Please select a video first');
-            return;
-          }
-
-          // Show spinner and hide previous results
-          document.getElementById('spinner').classList.add('show');
-          document.getElementById('resultSection').classList.remove('show');
-          document.getElementById('errorMessage').classList.remove('show');
-          document.getElementById('processBtn').disabled = true;
-
-          try {
-            const response = await fetch('/api/process', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                video_id: selectedVideoId
-              })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-              // Display the result (already sanitized / converted server-side)
-              document.getElementById('resultContent').innerHTML = data.result;
-              document.getElementById('resultSection').classList.add('show');
-            } else {
-              // Display error
-              showError(data.error || 'An error occurred while processing your request');
-            }
-          } catch (error) {
-            showError('Failed to connect to the API: ' + error.message);
-          } finally {
-            // Hide spinner and re-enable button
-            document.getElementById('spinner').classList.remove('show');
-            document.getElementById('processBtn').disabled = false;
-          }
-        }
 
         // Display an error message to the user
         function showError(message) {

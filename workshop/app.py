@@ -560,67 +560,6 @@ def generate_quiz() -> Dict[str, Any]:
     return jsonify({"success": False, "error": fallback}), 500
 
 
-@app.route('/api/process', methods=['POST'])
-def process_video() -> Dict[str, Any]:
-    """
-    Process the selected video by calling the external Reka chat API.
-
-    We still optionally build a local metadata summary (kept for potential
-    future UI use), but the primary output shown to the user is the
-    `chat_response` returned by the external API. If `chat_response` is null
-    we fall back to `system_message`, then `error`.
-
-    Expects JSON body: { "video_id": "uuid" }
-
-    Returns:
-        Dict[str, Any]: JSON response with fields:
-            success (bool)
-            result (str) when success
-            error (str) when not successful
-    """
-    data = request.get_json() or {}
-    video_id = data.get('video_id')
-
-    if not video_id:
-        return jsonify({"error": "No video ID provided"}), 400
-
-    api_data = call_reka_vision_qa(video_id)
-
-    # Determine final message to surface.
-    chat_response = api_data.get('chat_response')
-    system_msg = api_data.get('system_message')
-    api_error = api_data.get('error')
-
-    if chat_response:
-        roast_content = chat_response
-
-        # Parse the JSON string to extract section content
-        if isinstance(chat_response, str):
-            try:
-                import json
-                parsed = json.loads(chat_response)
-                if isinstance(parsed, dict) and 'sections' in parsed:
-                    sections = parsed.get('sections', [])
-                    content_parts = []
-                    for section in sections:
-                        if isinstance(section, dict) and 'section_content' in section:
-                            content_parts.append(section['section_content'])
-
-                    if content_parts:
-                        roast_content = '\n\n'.join(content_parts)
-            except (json.JSONDecodeError, ValueError):
-                # If parsing fails, use the raw string as-is
-                pass
-
-        # Convert Markdown roast text to HTML for display
-        html_result = simple_markdown_to_html(roast_content)
-        return jsonify({"success": True, "result": html_result})
-
-    # No chat_response; decide best fallback.
-    fallback = system_msg or api_error
-    if not fallback:
-        fallback = "Unknown error: chat_response missing."
-    return jsonify({"success": False, "error": fallback})
 
 
 
