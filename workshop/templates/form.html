@@ -459,6 +459,9 @@
           window.quizAnswers = {};
           window.currentQuestionIndex = 0;
           window.quizScore = 0;
+          window.timerActive = false;
+          window.timerInterval = null;
+          window.timeRemaining = 600; // 10 minutes in seconds
 
           // Build the interactive quiz interface
           let html = '';
@@ -472,6 +475,16 @@
                 <div class="quiz-meta">
                   <span>📝 ${quiz.total_questions || 0} Questions</span>
                   <span>⏱️ ${quiz.estimated_time || '10-15 minutes'}</span>
+                  <span class="timer-toggle" onclick="toggleTimer()">⏰ Timer: <span id="timerStatus">OFF</span></span>
+                </div>
+                <div class="quiz-timer" id="quizTimer" style="display: none;">
+                  <div class="timer-display">
+                    <span class="timer-label">Time Remaining:</span>
+                    <span class="timer-time" id="timerDisplay">10:00</span>
+                  </div>
+                  <div class="timer-bar">
+                    <div class="timer-progress" id="timerProgress"></div>
+                  </div>
                 </div>
                 <div class="quiz-progress">
                   <div class="progress-bar">
@@ -695,6 +708,8 @@
               <div class="results-actions">
                 <button class="btn btn-primary" onclick="retakeQuiz()">🔄 Retake Quiz</button>
                 <button class="btn btn-secondary" onclick="generateNewQuiz()">🎯 Generate New Quiz</button>
+                <button class="btn btn-info" onclick="exportResults()">📄 Export Results</button>
+                <button class="btn btn-success" onclick="shareResults()">📤 Share Results</button>
               </div>
             </div>
           `;
@@ -716,6 +731,137 @@
           // Hide quiz results and show generate button
           document.getElementById('quizSection').classList.remove('show');
           document.getElementById('quizBtn').disabled = false;
+        }
+
+        // Export and Share functionality
+        function exportResults() {
+          const score = Math.round((window.quizScore / window.currentQuiz.questions.length) * 100);
+          const correctAnswers = window.quizScore;
+          const totalQuestions = window.currentQuiz.questions.length;
+          
+          // Create a simple text report
+          let report = `REKA QUIZ RESULTS\n`;
+          report += `========================\n\n`;
+          report += `Quiz: ${window.currentQuiz.quiz_title || 'Generated Quiz'}\n`;
+          report += `Score: ${score}% (${correctAnswers}/${totalQuestions} correct)\n`;
+          report += `Date: ${new Date().toLocaleDateString()}\n\n`;
+          report += `DETAILED RESULTS:\n`;
+          report += `==================\n\n`;
+          
+          window.currentQuiz.questions.forEach((question, index) => {
+            const userAnswer = window.quizAnswers[index] || 'No answer provided';
+            const isCorrect = userAnswer === question.correct_answer;
+            
+            report += `Question ${index + 1}: ${isCorrect ? '✅ CORRECT' : '❌ INCORRECT'}\n`;
+            report += `Question: ${question.question_text}\n`;
+            report += `Your Answer: ${userAnswer}\n`;
+            report += `Correct Answer: ${question.correct_answer}\n`;
+            if (question.explanation) {
+              report += `Explanation: ${question.explanation}\n`;
+            }
+            report += `\n---\n\n`;
+          });
+          
+          // Create and download file
+          const blob = new Blob([report], { type: 'text/plain' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `reka-quiz-results-${new Date().toISOString().split('T')[0]}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }
+
+        function shareResults() {
+          const score = Math.round((window.quizScore / window.currentQuiz.questions.length) * 100);
+          const correctAnswers = window.quizScore;
+          const totalQuestions = window.currentQuiz.questions.length;
+          
+          const shareText = `🎯 I just completed a Reka Quiz and scored ${score}% (${correctAnswers}/${totalQuestions})! 
+          
+Try Reka Quiz - AI-powered educational quiz generator using Reka Vision API! 🚀
+
+#RekaQuiz #AI #Education #RekaVision`;
+          
+          if (navigator.share) {
+            navigator.share({
+              title: 'Reka Quiz Results',
+              text: shareText,
+              url: window.location.href
+            }).catch(err => console.log('Error sharing:', err));
+          } else {
+            // Fallback: copy to clipboard
+            navigator.clipboard.writeText(shareText).then(() => {
+              alert('Results copied to clipboard! Share it on social media or messaging apps.');
+            }).catch(err => {
+              console.log('Error copying to clipboard:', err);
+              alert('Share this text: ' + shareText);
+            });
+          }
+        }
+
+        // Timer functionality
+        function toggleTimer() {
+          const timerElement = document.getElementById('quizTimer');
+          const timerStatus = document.getElementById('timerStatus');
+          
+          if (window.timerActive) {
+            // Stop timer
+            window.timerActive = false;
+            if (window.timerInterval) {
+              clearInterval(window.timerInterval);
+              window.timerInterval = null;
+            }
+            timerElement.style.display = 'none';
+            timerStatus.textContent = 'OFF';
+          } else {
+            // Start timer
+            window.timerActive = true;
+            window.timeRemaining = 600; // Reset to 10 minutes
+            timerElement.style.display = 'block';
+            timerStatus.textContent = 'ON';
+            startTimer();
+          }
+        }
+
+        function startTimer() {
+          window.timerInterval = setInterval(() => {
+            window.timeRemaining--;
+            updateTimerDisplay();
+            
+            if (window.timeRemaining <= 0) {
+              // Time's up!
+              clearInterval(window.timerInterval);
+              window.timerInterval = null;
+              alert('Time\'s up! Submitting your quiz automatically.');
+              submitQuiz();
+            }
+          }, 1000);
+        }
+
+        function updateTimerDisplay() {
+          const minutes = Math.floor(window.timeRemaining / 60);
+          const seconds = window.timeRemaining % 60;
+          const display = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+          
+          document.getElementById('timerDisplay').textContent = display;
+          
+          // Update progress bar
+          const progress = (window.timeRemaining / 600) * 100;
+          document.getElementById('timerProgress').style.width = progress + '%';
+          
+          // Change color when time is running low
+          const timerDisplay = document.getElementById('timerDisplay');
+          if (window.timeRemaining <= 60) {
+            timerDisplay.style.color = '#dc3545';
+            timerDisplay.style.fontWeight = 'bold';
+          } else if (window.timeRemaining <= 120) {
+            timerDisplay.style.color = '#ffc107';
+          } else {
+            timerDisplay.style.color = '#28a745';
+          }
         }
 
 
@@ -1321,6 +1467,81 @@
             gap: 1rem;
             justify-content: center;
             margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        /* Timer Styles */
+        .timer-toggle {
+            cursor: pointer;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            transition: all 0.2s ease;
+        }
+        
+        .timer-toggle:hover {
+            background: #e9ecef;
+        }
+        
+        .quiz-timer {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border-radius: 8px;
+            border: 1px solid #ffc107;
+        }
+        
+        .timer-display {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .timer-label {
+            font-weight: 600;
+            color: #856404;
+        }
+        
+        .timer-time {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #28a745;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .timer-bar {
+            width: 100%;
+            height: 6px;
+            background: #fff;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .timer-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745 0%, #ffc107 50%, #dc3545 100%);
+            transition: width 1s ease;
+        }
+        
+        /* Export and Share Button Styles */
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn-info:hover:not(:disabled) {
+            background: #138496;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
         }
         
         /* Thumbnail Placeholder Styles */
