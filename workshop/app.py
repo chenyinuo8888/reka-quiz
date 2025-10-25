@@ -229,6 +229,111 @@ def analyze_video_content(video_id: str) -> Dict[str, Any]:
         return {"error": f"Video analysis failed: {e}"}
 
 
+def generate_quiz_questions(video_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate quiz questions based on video analysis.
+    
+    This function creates educational quiz questions using the video analysis
+    to ensure questions are relevant to the content and appropriate difficulty.
+    
+    Parameters:
+        video_id (str): The UUID of the video
+        analysis (Dict[str, Any]): The analysis results from analyze_video_content
+        
+    Returns:
+        Dict[str, Any]: Generated quiz questions and answers
+    """
+    headers = {}
+    if api_key:
+        headers['X-Api-Key'] = api_key
+
+    # Build a comprehensive quiz generation prompt
+    quiz_prompt = f"""
+    Based on this {analysis.get('subject', 'educational')} video about {analysis.get('topic', 'the topic')}, 
+    create a comprehensive educational quiz.
+    
+    Video Analysis Summary:
+    - Subject: {analysis.get('subject', 'Not specified')}
+    - Topic: {analysis.get('topic', 'Not specified')}
+    - Difficulty: {analysis.get('difficulty', 'Not specified')}
+    - Key Concepts: {', '.join(analysis.get('key_concepts', []))}
+    - Learning Objectives: {', '.join(analysis.get('learning_objectives', []))}
+    
+    Create a quiz with the following structure:
+    
+    1. **Multiple Choice Questions (3 questions)**: Test understanding of key concepts
+    2. **Short Answer Questions (2 questions)**: Test deeper comprehension  
+    3. **Problem-Solving Question (1 question)**: Test application of concepts
+    
+    For each question, provide:
+    - question_text: The question itself
+    - question_type: "multiple_choice", "short_answer", or "problem_solving"
+    - options: Array of choices (for multiple choice only)
+    - correct_answer: The correct answer
+    - explanation: Why this answer is correct
+    - difficulty_points: 1-5 scale
+    - concept_tested: Which key concept this tests
+    
+    Return the response as a valid JSON object with this exact structure:
+    {{
+        "quiz_title": "Quiz based on [topic]",
+        "quiz_description": "Test your understanding of [topic] concepts",
+        "total_questions": 6,
+        "estimated_time": "10-15 minutes",
+        "questions": [
+            {{
+                "question_id": 1,
+                "question_text": "What is the main concept discussed?",
+                "question_type": "multiple_choice",
+                "options": ["Option A", "Option B", "Option C", "Option D"],
+                "correct_answer": "Option B",
+                "explanation": "This is correct because...",
+                "difficulty_points": 3,
+                "concept_tested": "main_concept"
+            }}
+        ]
+    }}
+    
+    Make sure questions are:
+    - Directly related to the video content
+    - Appropriate for the difficulty level
+    - Test actual understanding, not just memorization
+    - Include clear explanations for learning
+    """
+
+    payload = {
+        "video_id": video_id,
+        "messages": [
+            {
+                "role": "user",
+                "content": quiz_prompt
+            }
+        ]
+    }
+
+    try:
+        resp = requests.post(
+            REKA_VIDEO_QA_ENDPOINT,
+            headers=headers,
+            json=payload,
+            timeout=90  # Longer timeout for quiz generation
+        )
+        
+        data: Dict[str, Any]
+        try:
+            data = resp.json()
+        except Exception:
+            data = {"error": f"Non-JSON response (status {resp.status_code})"}
+
+        if not resp.ok and 'error' not in data:
+            data['error'] = f"HTTP {resp.status_code} calling quiz generation endpoint"
+        return data
+    except requests.Timeout:
+        return {"error": "Quiz generation timed out - video may be too complex"}
+    except Exception as e:
+        return {"error": f"Quiz generation failed: {e}"}
+
+
 @app.route('/')
 def home() -> str:
     """
@@ -386,6 +491,71 @@ def analyze_video() -> Dict[str, Any]:
     system_msg = analysis_data.get('system_message')
     api_error = analysis_data.get('error')
     fallback = system_msg or api_error or "No analysis data received"
+    
+    return jsonify({"success": False, "error": fallback}), 500
+
+
+@app.route('/api/generate_quiz', methods=['POST'])
+def generate_quiz() -> Dict[str, Any]:
+    """
+    Generate a quiz based on video analysis.
+    
+    Expects JSON body: { "video_id": "uuid", "analysis": {...} }
+    
+    Returns:
+        Dict[str, Any]: JSON response with quiz data or error
+    """
+    data = request.get_json() or {}
+    video_id = data.get('video_id')
+    analysis = data.get('analysis', {})
+
+    if not video_id:
+        return jsonify({"error": "No video ID provided"}), 400
+
+    if not analysis:
+        return jsonify({"error": "No analysis data provided. Please analyze the video first."}), 400
+
+    # Call the quiz generation function
+    quiz_data = generate_quiz_questions(video_id, analysis)
+
+    # Check if quiz generation was successful
+    if 'error' in quiz_data:
+        return jsonify({"success": False, "error": quiz_data['error']}), 500
+
+    # Try to parse the chat response as JSON
+    chat_response = quiz_data.get('chat_response')
+    if chat_response:
+        try:
+            import json
+            # Parse the JSON response
+            parsed_quiz = json.loads(chat_response)
+            
+            # Validate that we have the expected structure
+            if isinstance(parsed_quiz, dict) and 'questions' in parsed_quiz:
+                return jsonify({
+                    "success": True, 
+                    "quiz": parsed_quiz,
+                    "message": "Quiz generated successfully"
+                })
+            else:
+                # If structure is wrong, return the raw response
+                return jsonify({
+                    "success": True,
+                    "quiz": {"raw_response": chat_response},
+                    "message": "Quiz generated but structure may be unexpected"
+                })
+        except (json.JSONDecodeError, ValueError) as e:
+            # If JSON parsing fails, return the raw response
+            return jsonify({
+                "success": True,
+                "quiz": {"raw_response": chat_response},
+                "message": "Quiz generated but response format may be unexpected"
+            })
+    
+    # No chat response available
+    system_msg = quiz_data.get('system_message')
+    api_error = quiz_data.get('error')
+    fallback = system_msg or api_error or "No quiz data received"
     
     return jsonify({"success": False, "error": fallback}), 500
 

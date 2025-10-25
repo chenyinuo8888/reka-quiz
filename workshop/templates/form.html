@@ -60,6 +60,9 @@
                 <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeVideo()" disabled>
                     📚 Analyze Video
                 </button>
+                <button class="btn btn-success" id="quizBtn" onclick="generateQuiz()" disabled>
+                    🎯 Generate Quiz
+                </button>
                 <button class="btn" id="processBtn" onclick="processVideo()" disabled>
                     🔥 Roast Video
                 </button>
@@ -80,6 +83,20 @@
                     </div>
                     <div class="analysis-results" id="analysisResults" style="display: none;">
                         <!-- Analysis results will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz Results Section -->
+            <div class="quiz-section" id="quizSection">
+                <h3>🎯 Generated Quiz</h3>
+                <div class="quiz-content" id="quizContent">
+                    <div class="quiz-loading" id="quizLoading" style="display: none;">
+                        <div class="spinner-icon"></div>
+                        <p>Generating quiz questions...</p>
+                    </div>
+                    <div class="quiz-results" id="quizResults" style="display: none;">
+                        <!-- Quiz results will be populated here -->
                     </div>
                 </div>
             </div>
@@ -202,6 +219,7 @@
           // Hide previous results and errors
           document.getElementById('resultSection').classList.remove('show');
           document.getElementById('analysisSection').classList.remove('show');
+          document.getElementById('quizSection').classList.remove('show');
           document.getElementById('errorMessage').classList.remove('show');
         }
 
@@ -370,6 +388,137 @@
           }
 
           resultsDiv.innerHTML = html || '<div class="analysis-value">No analysis data available</div>';
+          
+          // Store analysis data for quiz generation
+          window.currentAnalysis = analysis;
+          
+          // Enable quiz generation button
+          document.getElementById('quizBtn').disabled = false;
+        }
+
+        // Generate quiz based on video analysis
+        async function generateQuiz() {
+          if (!selectedVideoId) {
+            showError('Please select a video first');
+            return;
+          }
+
+          if (!window.currentAnalysis) {
+            showError('Please analyze the video first before generating a quiz');
+            return;
+          }
+
+          // Show quiz loading and hide previous results
+          document.getElementById('quizLoading').style.display = 'block';
+          document.getElementById('quizResults').style.display = 'none';
+          document.getElementById('quizSection').classList.add('show');
+          document.getElementById('errorMessage').classList.remove('show');
+          document.getElementById('quizBtn').disabled = true;
+
+          try {
+            const response = await fetch('/api/generate_quiz', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                video_id: selectedVideoId,
+                analysis: window.currentAnalysis
+              })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+              // Hide loading and show results
+              document.getElementById('quizLoading').style.display = 'none';
+              document.getElementById('quizResults').style.display = 'block';
+              
+              // Display the quiz results
+              displayQuizResults(data.quiz);
+            } else {
+              // Hide loading and show error
+              document.getElementById('quizLoading').style.display = 'none';
+              showError(data.error || 'Quiz generation failed');
+            }
+          } catch (error) {
+            document.getElementById('quizLoading').style.display = 'none';
+            showError('Failed to connect to quiz API: ' + error.message);
+          } finally {
+            // Re-enable button
+            document.getElementById('quizBtn').disabled = false;
+          }
+        }
+
+        // Display quiz results in a formatted way
+        function displayQuizResults(quiz) {
+          const resultsDiv = document.getElementById('quizResults');
+          
+          // Handle both structured and raw responses
+          if (quiz.raw_response) {
+            // If we got a raw response, display it nicely
+            resultsDiv.innerHTML = `
+              <div class="quiz-question">
+                <div class="question-text">${quiz.raw_response}</div>
+              </div>
+            `;
+            return;
+          }
+
+          // Build the structured quiz display
+          let html = '';
+
+          // Quiz header
+          if (quiz.quiz_title || quiz.quiz_description) {
+            html += `
+              <div class="quiz-header">
+                <div class="quiz-title">${quiz.quiz_title || 'Generated Quiz'}</div>
+                <div class="quiz-description">${quiz.quiz_description || 'Test your understanding'}</div>
+                <div class="quiz-meta">
+                  <span>📝 ${quiz.total_questions || 0} Questions</span>
+                  <span>⏱️ ${quiz.estimated_time || '10-15 minutes'}</span>
+                </div>
+              </div>
+            `;
+          }
+
+          // Questions
+          if (quiz.questions && Array.isArray(quiz.questions)) {
+            quiz.questions.forEach((question, index) => {
+              html += `
+                <div class="quiz-question">
+                  <div class="question-header">
+                    <div class="question-number">Question ${question.question_id || index + 1}</div>
+                    <div class="question-type">${question.question_type || 'question'}</div>
+                  </div>
+                  <div class="question-text">${question.question_text}</div>
+              `;
+
+              // Add options for multiple choice
+              if (question.question_type === 'multiple_choice' && question.options) {
+                html += '<div class="question-options">';
+                question.options.forEach(option => {
+                  html += `<div class="option-item">${option}</div>`;
+                });
+                html += '</div>';
+              }
+
+              // Add answer section
+              if (question.correct_answer || question.explanation) {
+                html += `
+                  <div class="question-answer">
+                    <div class="answer-label">✅ Correct Answer:</div>
+                    <div class="answer-text">${question.correct_answer || 'Not provided'}</div>
+                    ${question.explanation ? `<div class="answer-explanation">💡 ${question.explanation}</div>` : ''}
+                  </div>
+                `;
+              }
+
+              html += '</div>';
+            });
+          }
+
+          resultsDiv.innerHTML = html || '<div class="question-text">No quiz questions available</div>';
         }
 
         // Process the selected video by calling the backend
@@ -650,6 +799,162 @@
         
         .btn-primary:hover:not(:disabled) {
             background: #1a5bb8;
+        }
+        
+        /* Quiz Section Styles */
+        .quiz-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
+            border-radius: 12px;
+            border: 1px solid #c3e6cb;
+            display: none;
+        }
+        
+        .quiz-section.show {
+            display: block;
+        }
+        
+        .quiz-section h3 {
+            color: #155724;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .quiz-loading {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .quiz-loading .spinner-icon {
+            margin: 0 auto 1rem;
+        }
+        
+        .quiz-results {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .quiz-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #28a745;
+        }
+        
+        .quiz-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #155724;
+            margin-bottom: 0.5rem;
+        }
+        
+        .quiz-description {
+            color: #6c757d;
+            font-size: 1rem;
+        }
+        
+        .quiz-meta {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .quiz-question {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .question-number {
+            font-weight: 600;
+            color: #155724;
+            font-size: 1.1rem;
+        }
+        
+        .question-type {
+            background: #28a745;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .question-text {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #212529;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+        
+        .question-options {
+            margin-bottom: 1rem;
+        }
+        
+        .option-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .option-item:hover {
+            background: #e9ecef;
+            border-color: #28a745;
+        }
+        
+        .question-answer {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .answer-label {
+            font-weight: 600;
+            color: #155724;
+            margin-bottom: 0.5rem;
+        }
+        
+        .answer-text {
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+        
+        .answer-explanation {
+            color: #6c757d;
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
         }
         
         /* Thumbnail Placeholder Styles */
