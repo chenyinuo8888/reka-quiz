@@ -222,6 +222,11 @@ def analyze_video_content(video_id: str) -> Dict[str, Any]:
 
         if not resp.ok and 'error' not in data:
             data['error'] = f"HTTP {resp.status_code} calling analysis endpoint"
+        
+        # Check for specific error about video not being processed
+        if data.get('system_message') and 'No video chunks found' in data.get('system_message', ''):
+            data['error'] = "Video is still being processed. Please wait a few minutes and try again."
+        
         return data
     except requests.Timeout:
         return {"error": "Video analysis timed out - video may be too long"}
@@ -454,7 +459,7 @@ def analyze_video() -> Dict[str, Any]:
     analysis_data = analyze_video_content(video_id)
 
     # Check if analysis was successful
-    if 'error' in analysis_data:
+    if 'error' in analysis_data and analysis_data['error']:
         return jsonify({"success": False, "error": analysis_data['error']}), 500
 
     # Try to parse the chat response as JSON
@@ -462,8 +467,23 @@ def analyze_video() -> Dict[str, Any]:
     if chat_response:
         try:
             import json
+            import re
+            
+            # Extract JSON from markdown code blocks if present
+            json_text = chat_response
+            if '```json' in chat_response:
+                # Extract JSON from markdown code blocks
+                match = re.search(r'```json\s*\n(.*?)\n```', chat_response, re.DOTALL)
+                if match:
+                    json_text = match.group(1)
+            elif '```' in chat_response:
+                # Extract JSON from generic code blocks
+                match = re.search(r'```\s*\n(.*?)\n```', chat_response, re.DOTALL)
+                if match:
+                    json_text = match.group(1)
+            
             # Parse the JSON response
-            parsed_analysis = json.loads(chat_response)
+            parsed_analysis = json.loads(json_text)
             
             # Validate that we have the expected structure
             if isinstance(parsed_analysis, dict) and 'subject' in parsed_analysis:
@@ -484,7 +504,7 @@ def analyze_video() -> Dict[str, Any]:
             return jsonify({
                 "success": True,
                 "analysis": {"raw_response": chat_response},
-                "message": "Analysis completed but response format may be unexpected"
+                "message": f"Analysis completed but JSON parsing failed: {str(e)}"
             })
     
     # No chat response available
@@ -493,6 +513,74 @@ def analyze_video() -> Dict[str, Any]:
     fallback = system_msg or api_error or "No analysis data received"
     
     return jsonify({"success": False, "error": fallback}), 500
+
+
+@app.route('/api/check_video_status', methods=['POST'])
+def check_video_status() -> Dict[str, Any]:
+    """
+    Check if a video is ready for analysis.
+    
+    Expects JSON body: { "video_id": "uuid" }
+    
+    Returns:
+        Dict[str, Any]: JSON response with video processing status
+    """
+    data = request.get_json() or {}
+    video_id = data.get('video_id')
+
+    if not video_id:
+        return jsonify({"error": "No video ID provided"}), 400
+
+    # Make a simple test request to see if video is ready
+    headers = {}
+    if api_key:
+        headers['X-Api-Key'] = api_key
+
+    test_payload = {
+        "video_id": video_id,
+        "messages": [
+            {
+                "role": "user",
+                "content": "Is this video ready for analysis?"
+            }
+        ]
+    }
+
+    try:
+        resp = requests.post(
+            REKA_VIDEO_QA_ENDPOINT,
+            headers=headers,
+            json=test_payload,
+            timeout=10
+        )
+        
+        data: Dict[str, Any]
+        try:
+            data = resp.json()
+        except Exception:
+            data = {"error": f"Non-JSON response (status {resp.status_code})"}
+
+        if not resp.ok:
+            return jsonify({"success": False, "error": f"HTTP {resp.status_code}"}), resp.status_code
+
+        # Check if video is ready
+        if data.get('system_message') and 'No video chunks found' in data.get('system_message', ''):
+            return jsonify({
+                "success": True,
+                "ready": False,
+                "message": "Video is still being processed. Please wait a few minutes."
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "ready": True,
+                "message": "Video is ready for analysis."
+            })
+
+    except requests.Timeout:
+        return jsonify({"success": False, "error": "Request timed out"}), 504
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Status check failed: {e}"}), 500
 
 
 @app.route('/api/generate_quiz', methods=['POST'])

@@ -212,6 +212,27 @@
           document.getElementById('errorMessage').classList.remove('show');
         }
 
+        // Check if video is ready for analysis
+        async function checkVideoStatus() {
+          try {
+            const response = await fetch('/api/check_video_status', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                video_id: selectedVideoId
+              })
+            });
+
+            const data = await response.json();
+            return data;
+          } catch (error) {
+            console.error('Error checking video status:', error);
+            return { success: false, error: 'Failed to check video status' };
+          }
+        }
+
         // Analyze the selected video for educational content
         async function analyzeVideo() {
           if (!selectedVideoId) {
@@ -225,6 +246,15 @@
           document.getElementById('analysisSection').classList.add('show');
           document.getElementById('errorMessage').classList.remove('show');
           document.getElementById('analyzeBtn').disabled = true;
+
+          // First check if video is ready
+          const statusCheck = await checkVideoStatus();
+          if (!statusCheck.success || !statusCheck.ready) {
+            document.getElementById('analysisLoading').style.display = 'none';
+            showError(statusCheck.message || 'Video is not ready for analysis. Please wait a few minutes and try again.');
+            document.getElementById('analyzeBtn').disabled = false;
+            return;
+          }
 
           try {
             const response = await fetch('/api/analyze', {
@@ -249,7 +279,15 @@
             } else {
               // Hide loading and show error
               document.getElementById('analysisLoading').style.display = 'none';
-              showError(data.error || 'Analysis failed');
+              
+              // Show specific error message
+              let errorMessage = data.error || 'Analysis failed';
+              if (errorMessage.includes('still being processed')) {
+                errorMessage = '🔄 Video is still being processed. Please wait a few minutes and try again.';
+              } else if (errorMessage.includes('No video chunks found')) {
+                errorMessage = '⏳ Video processing is not complete. Please wait a few minutes and try again.';
+              }
+              showError(errorMessage);
             }
           } catch (error) {
             document.getElementById('analysisLoading').style.display = 'none';
