@@ -57,15 +57,32 @@
             </div>
 
             <div class="button-container">
+                <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeVideo()" disabled>
+                    📚 Analyze Video
+                </button>
                 <button class="btn" id="processBtn" onclick="processVideo()" disabled>
-                    Roast Video
+                    🔥 Roast Video
                 </button>
                 <button class="btn btn-secondary" id="watchBtn" onclick="watchVideo()" disabled>
-                    Watch Video
+                    ▶️ Watch Video
                 </button>
             </div>
 
             <div class="error-message" id="errorMessage"></div>
+
+            <!-- Analysis Results Section -->
+            <div class="analysis-section" id="analysisSection">
+                <h3>📊 Video Analysis</h3>
+                <div class="analysis-content" id="analysisContent">
+                    <div class="analysis-loading" id="analysisLoading" style="display: none;">
+                        <div class="spinner-icon"></div>
+                        <p>Analyzing video content...</p>
+                    </div>
+                    <div class="analysis-results" id="analysisResults" style="display: none;">
+                        <!-- Analysis results will be populated here -->
+                    </div>
+                </div>
+            </div>
 
             <div class="spinner" id="spinner">
                 <div class="spinner-icon"></div>
@@ -174,7 +191,8 @@
             selectedVideoUrl = selectedCard.getAttribute('data-url');
           }
 
-          // Enable the process button
+          // Enable all buttons
+          document.getElementById('analyzeBtn').disabled = false;
           document.getElementById('processBtn').disabled = false;
 
           // Enable the watch button if URL is available
@@ -183,7 +201,175 @@
 
           // Hide previous results and errors
           document.getElementById('resultSection').classList.remove('show');
+          document.getElementById('analysisSection').classList.remove('show');
           document.getElementById('errorMessage').classList.remove('show');
+        }
+
+        // Analyze the selected video for educational content
+        async function analyzeVideo() {
+          if (!selectedVideoId) {
+            showError('Please select a video first');
+            return;
+          }
+
+          // Show analysis loading and hide previous results
+          document.getElementById('analysisLoading').style.display = 'block';
+          document.getElementById('analysisResults').style.display = 'none';
+          document.getElementById('analysisSection').classList.add('show');
+          document.getElementById('errorMessage').classList.remove('show');
+          document.getElementById('analyzeBtn').disabled = true;
+
+          try {
+            const response = await fetch('/api/analyze', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                video_id: selectedVideoId
+              })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+              // Hide loading and show results
+              document.getElementById('analysisLoading').style.display = 'none';
+              document.getElementById('analysisResults').style.display = 'block';
+              
+              // Display the analysis results
+              displayAnalysisResults(data.analysis);
+            } else {
+              // Hide loading and show error
+              document.getElementById('analysisLoading').style.display = 'none';
+              showError(data.error || 'Analysis failed');
+            }
+          } catch (error) {
+            document.getElementById('analysisLoading').style.display = 'none';
+            showError('Failed to connect to analysis API: ' + error.message);
+          } finally {
+            // Re-enable button
+            document.getElementById('analyzeBtn').disabled = false;
+          }
+        }
+
+        // Display analysis results in a formatted way
+        function displayAnalysisResults(analysis) {
+          const resultsDiv = document.getElementById('analysisResults');
+          
+          // Handle both structured and raw responses
+          let analysisData = analysis;
+          if (analysis.raw_response) {
+            // If we got a raw response, try to display it nicely
+            resultsDiv.innerHTML = `
+              <div class="analysis-item">
+                <div class="analysis-label">Analysis Results:</div>
+                <div class="analysis-value">${analysis.raw_response}</div>
+              </div>
+            `;
+            return;
+          }
+
+          // Build the structured display
+          let html = '';
+
+          if (analysis.subject) {
+            html += `
+              <div class="analysis-item">
+                <div class="analysis-label">📚 Subject Area</div>
+                <div class="analysis-value">${analysis.subject}</div>
+              </div>
+            `;
+          }
+
+          if (analysis.topic) {
+            html += `
+              <div class="analysis-item">
+                <div class="analysis-label">🎯 Topic</div>
+                <div class="analysis-value">${analysis.topic}</div>
+              </div>
+            `;
+          }
+
+          if (analysis.difficulty) {
+            html += `
+              <div class="analysis-item">
+                <div class="analysis-label">📊 Difficulty Level</div>
+                <div class="analysis-value">${analysis.difficulty}</div>
+              </div>
+            `;
+          }
+
+          if (analysis.key_concepts && Array.isArray(analysis.key_concepts)) {
+            html += `
+              <div class="analysis-item">
+                <div class="analysis-label">🔑 Key Concepts</div>
+                <div class="analysis-concepts">
+                  ${analysis.key_concepts.map(concept => 
+                    `<span class="concept-tag">${concept}</span>`
+                  ).join('')}
+                </div>
+              </div>
+            `;
+          }
+
+          if (analysis.learning_objectives && Array.isArray(analysis.learning_objectives)) {
+            html += `
+              <div class="analysis-item">
+                <div class="analysis-label">🎯 Learning Objectives</div>
+                <div class="analysis-value">
+                  <ul>
+                    ${analysis.learning_objectives.map(obj => 
+                      `<li>${obj}</li>`
+                    ).join('')}
+                  </ul>
+                </div>
+              </div>
+            `;
+          }
+
+          if (analysis.key_moments && Array.isArray(analysis.key_moments)) {
+            html += `
+              <div class="analysis-item">
+                <div class="analysis-label">⏰ Key Moments</div>
+                <div class="analysis-moments">
+                  ${analysis.key_moments.map(moment => 
+                    `<div class="moment-item">
+                      <div class="moment-timestamp">${moment.timestamp}s</div>
+                      <div class="moment-concept">${moment.concept}</div>
+                      <div class="moment-description">${moment.description}</div>
+                    </div>`
+                  ).join('')}
+                </div>
+              </div>
+            `;
+          }
+
+          if (analysis.educational_value) {
+            html += `
+              <div class="analysis-item">
+                <div class="analysis-label">💡 Educational Value</div>
+                <div class="analysis-value">${analysis.educational_value}</div>
+              </div>
+            `;
+          }
+
+          if (analysis.prerequisites && Array.isArray(analysis.prerequisites)) {
+            html += `
+              <div class="analysis-item">
+                <div class="analysis-label">📋 Prerequisites</div>
+                <div class="analysis-value">
+                  <ul>
+                    ${analysis.prerequisites.map(prereq => 
+                      `<li>${prereq}</li>`
+                    ).join('')}
+                  </ul>
+                </div>
+              </div>
+            `;
+          }
+
+          resultsDiv.innerHTML = html || '<div class="analysis-value">No analysis data available</div>';
         }
 
         // Process the selected video by calling the backend
@@ -350,6 +536,120 @@
         .button-container .btn {
             flex: 0 1 auto;
             min-width: 150px;
+        }
+        
+        /* Analysis Section Styles */
+        .analysis-section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            border: 1px solid #dee2e6;
+            display: none;
+        }
+        
+        .analysis-section.show {
+            display: block;
+        }
+        
+        .analysis-section h3 {
+            color: #203F72;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .analysis-loading {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .analysis-loading .spinner-icon {
+            margin: 0 auto 1rem;
+        }
+        
+        .analysis-results {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .analysis-item {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .analysis-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .analysis-label {
+            font-weight: 600;
+            color: #203F72;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        
+        .analysis-value {
+            color: #495057;
+            line-height: 1.5;
+        }
+        
+        .analysis-concepts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .concept-tag {
+            background: #2276FF;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .analysis-moments {
+            margin-top: 0.5rem;
+        }
+        
+        .moment-item {
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid #2276FF;
+        }
+        
+        .moment-timestamp {
+            font-weight: 600;
+            color: #2276FF;
+            font-size: 0.9rem;
+        }
+        
+        .moment-concept {
+            font-weight: 500;
+            color: #203F72;
+            margin: 0.25rem 0;
+        }
+        
+        .moment-description {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: #2276FF;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #1a5bb8;
         }
         
         /* Thumbnail Placeholder Styles */

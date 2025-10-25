@@ -144,6 +144,91 @@ def simple_markdown_to_html(md: str) -> str:
     return markdown.markdown(md, extensions=['extra', 'sane_lists'])
 
 
+def analyze_video_content(video_id: str) -> Dict[str, Any]:
+    """
+    Analyze video for educational content, topics, and key concepts.
+    
+    This function uses Reka Vision API to analyze educational videos and extract:
+    - Main subject/topic
+    - Key concepts and strategies
+    - Difficulty level
+    - Learning objectives
+    - Important timestamps
+    
+    Parameters:
+        video_id (str): The UUID of the video to analyze
+        
+    Returns:
+        Dict[str, Any]: Structured analysis data with educational insights
+    """
+    headers = {}
+    if api_key:
+        headers['X-Api-Key'] = api_key
+
+    analysis_prompt = """
+    Analyze this educational video and provide a comprehensive educational analysis. 
+    
+    Please identify and return the following information in JSON format:
+    
+    1. **Subject Area**: What is the main academic subject? (e.g., Mathematics, Science, History, Language Arts, etc.)
+    2. **Topic**: What specific topic is being taught? (e.g., "Quadratic Equations", "Photosynthesis", "World War II")
+    3. **Difficulty Level**: Rate the content difficulty (beginner, intermediate, advanced)
+    4. **Key Concepts**: List 3-5 main concepts or strategies being taught
+    5. **Learning Objectives**: What should students learn from this video?
+    6. **Key Moments**: Identify important timestamps and what concepts are taught at each moment
+    7. **Educational Value**: What makes this video educationally valuable?
+    8. **Prerequisites**: What prior knowledge might students need?
+    
+    Return the response as a valid JSON object with these exact field names:
+    {
+        "subject": "string",
+        "topic": "string", 
+        "difficulty": "string",
+        "key_concepts": ["concept1", "concept2", "concept3"],
+        "learning_objectives": ["objective1", "objective2"],
+        "key_moments": [
+            {"timestamp": 120, "concept": "factoring", "description": "Shows how to factor quadratic equations"}
+        ],
+        "educational_value": "string",
+        "prerequisites": ["prerequisite1", "prerequisite2"]
+    }
+    
+    Focus on identifying educational content that could be used to create meaningful quiz questions.
+    """
+
+    payload = {
+        "video_id": video_id,
+        "messages": [
+            {
+                "role": "user",
+                "content": analysis_prompt
+            }
+        ]
+    }
+
+    try:
+        resp = requests.post(
+            REKA_VIDEO_QA_ENDPOINT,
+            headers=headers,
+            json=payload,
+            timeout=60  # Longer timeout for analysis
+        )
+        
+        data: Dict[str, Any]
+        try:
+            data = resp.json()
+        except Exception:
+            data = {"error": f"Non-JSON response (status {resp.status_code})"}
+
+        if not resp.ok and 'error' not in data:
+            data['error'] = f"HTTP {resp.status_code} calling analysis endpoint"
+        return data
+    except requests.Timeout:
+        return {"error": "Video analysis timed out - video may be too long"}
+    except Exception as e:
+        return {"error": f"Video analysis failed: {e}"}
+
+
 @app.route('/')
 def home() -> str:
     """
@@ -242,6 +327,67 @@ def upload_video() -> Dict[str, Any]:
         return jsonify({"success": False, "error": "Request timed out"}), 504
     except Exception as e:
         return jsonify({"success": False, "error": f"Upload failed: {str(e)}"}), 500
+
+
+@app.route('/api/analyze', methods=['POST'])
+def analyze_video() -> Dict[str, Any]:
+    """
+    Analyze a video for educational content and topics.
+    
+    Expects JSON body: { "video_id": "uuid" }
+    
+    Returns:
+        Dict[str, Any]: JSON response with analysis data or error
+    """
+    data = request.get_json() or {}
+    video_id = data.get('video_id')
+
+    if not video_id:
+        return jsonify({"error": "No video ID provided"}), 400
+
+    # Call the analysis function
+    analysis_data = analyze_video_content(video_id)
+
+    # Check if analysis was successful
+    if 'error' in analysis_data:
+        return jsonify({"success": False, "error": analysis_data['error']}), 500
+
+    # Try to parse the chat response as JSON
+    chat_response = analysis_data.get('chat_response')
+    if chat_response:
+        try:
+            import json
+            # Parse the JSON response
+            parsed_analysis = json.loads(chat_response)
+            
+            # Validate that we have the expected structure
+            if isinstance(parsed_analysis, dict) and 'subject' in parsed_analysis:
+                return jsonify({
+                    "success": True, 
+                    "analysis": parsed_analysis,
+                    "message": "Video analysis completed successfully"
+                })
+            else:
+                # If structure is wrong, return the raw response
+                return jsonify({
+                    "success": True,
+                    "analysis": {"raw_response": chat_response},
+                    "message": "Analysis completed but structure may be unexpected"
+                })
+        except (json.JSONDecodeError, ValueError) as e:
+            # If JSON parsing fails, return the raw response
+            return jsonify({
+                "success": True,
+                "analysis": {"raw_response": chat_response},
+                "message": "Analysis completed but response format may be unexpected"
+            })
+    
+    # No chat response available
+    system_msg = analysis_data.get('system_message')
+    api_error = analysis_data.get('error')
+    fallback = system_msg or api_error or "No analysis data received"
+    
+    return jsonify({"success": False, "error": fallback}), 500
 
 
 @app.route('/api/process', methods=['POST'])
