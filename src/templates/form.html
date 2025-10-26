@@ -34,6 +34,7 @@
         <ul>
             <li><a href="/">Home</a></li>
             <li><a href="/form" class="active">Create Quiz</a></li>
+            <li><a href="/analytics">Analytics</a></li>
         </ul>
     </nav>
 
@@ -881,6 +882,29 @@
         }
 
         function displayQuizResultsSummary(score, correctAnswers, totalQuestions) {
+          // Track analytics data
+          const analyticsData = {
+            score: score,
+            totalQuestions: totalQuestions,
+            correctAnswers: correctAnswers,
+            topic: window.currentAnalysis?.topic || 'General',
+            difficulty: window.currentAnalysis?.difficulty || 'intermediate',
+            date: new Date().toISOString()
+          };
+          
+          // Record quiz completion in analytics
+          if (typeof AnalyticsDashboard !== 'undefined') {
+            AnalyticsDashboard.recordQuizCompletion(analyticsData);
+          } else {
+            // Fallback: store data for later analytics processing
+            const existingData = JSON.parse(localStorage.getItem('quizzly_analytics') || '{"quizzes": []}');
+            existingData.quizzes.push(analyticsData);
+            localStorage.setItem('quizzly_analytics', JSON.stringify(existingData));
+            
+            // Check for achievements and show notifications
+            checkAndShowAchievements(analyticsData);
+          }
+          
           const resultsDiv = document.getElementById('quizResults');
           
           let html = `
@@ -1156,6 +1180,111 @@ Try Quizzly - Your AI-powered quiz generator for educational videos! 🚀
             return;
           }
           window.open(selectedVideoUrl, '_blank');
+        }
+
+        // Achievement checking function for quiz completion
+        function checkAndShowAchievements(quizData) {
+            const existingData = JSON.parse(localStorage.getItem('quizzly_analytics') || '{"quizzes": [], "topics": {}, "streak": 0, "totalQuizzes": 0}');
+            const achievements = JSON.parse(localStorage.getItem('quizzly_achievements') || '[]');
+            const newAchievements = [];
+            
+            // Update totals
+            existingData.totalQuizzes = (existingData.totalQuizzes || 0) + 1;
+            existingData.streak = (existingData.streak || 0) + 1;
+            
+            // First quiz achievement
+            if (existingData.totalQuizzes === 1) {
+                newAchievements.push({
+                    id: 'first_quiz',
+                    title: 'First Steps',
+                    description: 'Complete your first quiz',
+                    icon: '🎯'
+                });
+            }
+            
+            // Perfect score achievement
+            if (quizData.score === 100) {
+                newAchievements.push({
+                    id: 'perfect_score',
+                    title: 'Perfectionist',
+                    description: 'Score 100% on a quiz',
+                    icon: '💯'
+                });
+            }
+            
+            // Streak achievements
+            if (existingData.streak === 3) {
+                newAchievements.push({
+                    id: 'streak_3',
+                    title: 'Getting Started',
+                    description: 'Complete 3 quizzes in a row',
+                    icon: '🔥'
+                });
+            }
+            
+            if (existingData.streak === 5) {
+                newAchievements.push({
+                    id: 'streak_5',
+                    title: 'On Fire',
+                    description: 'Complete 5 quizzes in a row',
+                    icon: '🔥'
+                });
+            }
+            
+            // Score-based achievements
+            if (quizData.score >= 90 && quizData.score < 100) {
+                newAchievements.push({
+                    id: 'excellent_score',
+                    title: 'Excellent Work',
+                    description: 'Score 90% or higher',
+                    icon: '⭐'
+                });
+            }
+            
+            // Show notifications for new achievements
+            newAchievements.forEach(achievement => {
+                if (!achievements.some(a => a.id === achievement.id)) {
+                    achievements.push({
+                        ...achievement,
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                    showAchievementNotification(achievement);
+                }
+            });
+            
+            // Save updated data
+            localStorage.setItem('quizzly_analytics', JSON.stringify(existingData));
+            localStorage.setItem('quizzly_achievements', JSON.stringify(achievements));
+        }
+        
+        function showAchievementNotification(achievement) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'achievement-notification';
+            notification.innerHTML = `
+                <div class="achievement-notification-content">
+                    <div class="achievement-icon-large">${achievement.icon}</div>
+                    <div class="achievement-text">
+                        <div class="achievement-title">🏆 Achievement Unlocked!</div>
+                        <div class="achievement-name">${achievement.title}</div>
+                        <div class="achievement-desc">${achievement.description}</div>
+                    </div>
+                </div>
+            `;
+            
+            // Add to page
+            document.body.appendChild(notification);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.5s ease-in';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 500);
+            }, 5000);
         }
 
         // Initialize delete button event listeners
@@ -1921,6 +2050,75 @@ Try Quizzly - Your AI-powered quiz generator for educational videos! 🚀
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        /* Achievement notification animations */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        
+        .achievement-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #2c3e50;
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(255, 215, 0, 0.4);
+            z-index: 10000;
+            animation: slideInRight 0.5s ease-out;
+            max-width: 300px;
+            font-family: inherit;
+        }
+        
+        .achievement-notification-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .achievement-icon-large {
+            font-size: 2rem;
+        }
+        
+        .achievement-text {
+            flex: 1;
+        }
+        
+        .achievement-title {
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .achievement-name {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .achievement-desc {
+            font-size: 0.8rem;
+            opacity: 0.8;
         }
         
         /* Question Type Selector Styles */

@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - Quizzly</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>🧠 Quizzly</h1>
+            <p>Your AI-Powered Quiz Generator for Educational Videos</p>
+        </div>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/form">Create Quiz</a></li>
+            <li><a href="/analytics" class="active">Analytics</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <div class="analytics-dashboard">
+            <h2>📊 Your Learning Analytics</h2>
+            <p class="dashboard-subtitle">Track your progress and discover your learning patterns</p>
+            
+            <!-- Performance Overview -->
+            <div class="analytics-section">
+                <h3>🎯 Performance Overview</h3>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="totalQuizzes">0</div>
+                            <div class="stat-label">Total Quizzes</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="averageScore">0%</div>
+                            <div class="stat-label">Average Score</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🔥</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="currentStreak">0</div>
+                            <div class="stat-label">Current Streak</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="achievements">0</div>
+                            <div class="stat-label">Achievements</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Chart -->
+            <div class="analytics-section">
+                <h3>📈 Performance Over Time</h3>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Topic Performance -->
+            <div class="analytics-section">
+                <h3>📚 Topic Performance Analysis</h3>
+                <div class="topic-analysis">
+                    <div class="chart-container">
+                        <canvas id="topicChart"></canvas>
+                    </div>
+                    <div class="topic-recommendations" id="topicRecommendations">
+                        <!-- Dynamic recommendations will be added here -->
+                    </div>
+                </div>
+                
+                <!-- Difficulty Analysis -->
+                <div class="difficulty-analysis">
+                    <h4>🎯 Difficulty Breakdown</h4>
+                    <div class="difficulty-grid" id="difficultyGrid">
+                        <!-- Dynamic difficulty analysis will be added here -->
+                    </div>
+                </div>
+                
+                <!-- Topic Mastery -->
+                <div class="topic-mastery">
+                    <h4>🏆 Topic Mastery Progress</h4>
+                    <div class="mastery-grid" id="masteryGrid">
+                        <!-- Dynamic mastery progress will be added here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Learning Paths -->
+            <div class="analytics-section">
+                <h3>🛤️ Your Learning Path</h3>
+                <div class="learning-paths-container">
+                    <div class="path-recommendations" id="pathRecommendations">
+                        <!-- Dynamic learning recommendations will be added here -->
+                    </div>
+                    <div class="learning-goals" id="learningGoals">
+                        <!-- Learning goals and milestones will be added here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Achievements -->
+            <div class="analytics-section">
+                <h3>🏆 Achievements</h3>
+                <div class="achievements-grid" id="achievementsGrid">
+                    <!-- Dynamic achievements will be added here -->
+                </div>
+            </div>
+
+            <!-- Learning Insights -->
+            <div class="analytics-section">
+                <h3>💡 Learning Insights</h3>
+                <div class="insights-container" id="insightsContainer">
+                    <!-- Dynamic insights will be added here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>🧠 Quizzly - Built with Flask & ❤️ using Reka Vision API</p>
+        <p><a href="https://docs.reka.ai/vision" target="_blank" style="color:#2276FF;">Reka Vision Docs</a> · <a href="https://link.reka.ai/free" target="_blank" style="color:#2276FF;">Get a FREE API Key</a></p>
+    </footer>
+
+    <style>
+        .analytics-dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .dashboard-subtitle {
+            color: #6c757d;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .analytics-section {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+        }
+
+        .analytics-section h3 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-icon {
+            font-size: 2rem;
+        }
+
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 1rem 0;
+        }
+
+        .topic-analysis {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .topic-recommendations {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .topic-recommendations h4 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        .recommendation-item {
+            background: white;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .achievements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .achievement-badge {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #2c3e50;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .achievement-badge:hover {
+            transform: translateY(-2px);
+        }
+
+        .achievement-badge.locked {
+            background: #e9ecef;
+            color: #6c757d;
+            box-shadow: none;
+        }
+
+        .achievement-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .achievement-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .achievement-desc {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .insights-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .insight-card {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid #2196F3;
+        }
+
+        .insight-card h4 {
+            color: #1976D2;
+            margin-bottom: 0.5rem;
+        }
+
+        .insight-card p {
+            color: #424242;
+            margin: 0;
+        }
+        
+        /* Difficulty Analysis Styles */
+        .difficulty-analysis {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .difficulty-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .difficulty-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .difficulty-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .difficulty-card.beginner {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+        }
+        
+        .difficulty-card.intermediate {
+            border-color: #FF9800;
+            background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%);
+        }
+        
+        .difficulty-card.advanced {
+            border-color: #F44336;
+            background: linear-gradient(135deg, rgba(244, 67, 54, 0.1) 0%, rgba(244, 67, 54, 0.05) 100%);
+        }
+        
+        .difficulty-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .difficulty-icon {
+            font-size: 1.5rem;
+        }
+        
+        .difficulty-title {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .difficulty-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+        
+        .difficulty-score {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        
+        .difficulty-count {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .difficulty-progress {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        
+        .difficulty-progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .difficulty-progress-fill.beginner {
+            background: linear-gradient(90deg, #4CAF50 0%, #66BB6A 100%);
+        }
+        
+        .difficulty-progress-fill.intermediate {
+            background: linear-gradient(90deg, #FF9800 0%, #FFB74D 100%);
+        }
+        
+        .difficulty-progress-fill.advanced {
+            background: linear-gradient(90deg, #F44336 0%, #EF5350 100%);
+        }
+        
+        /* Topic Mastery Styles */
+        .topic-mastery {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .mastery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .mastery-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 2px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .mastery-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .mastery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .mastery-topic {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .mastery-level {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .mastery-level.expert {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .mastery-level.advanced {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .mastery-level.intermediate {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .mastery-level.beginner {
+            background: #9E9E9E;
+            color: white;
+        }
+        
+        .mastery-progress {
+            width: 100%;
+            height: 12px;
+            background: #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        
+        .mastery-progress-fill {
+            height: 100%;
+            border-radius: 6px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+        
+        .mastery-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        /* Learning Paths Styles */
+        .learning-paths-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 1rem;
+        }
+        
+        .path-recommendations, .learning-goals {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 2px solid #e9ecef;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .path-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        
+        .path-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+        
+        .path-card.weakness {
+            border-left-color: #F44336;
+            background: linear-gradient(135deg, #ffebee 0%, #fce4ec 100%);
+        }
+        
+        .path-card.strength {
+            border-left-color: #4CAF50;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%);
+        }
+        
+        .path-card.opportunity {
+            border-left-color: #FF9800;
+            background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%);
+        }
+        
+        .path-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .path-icon {
+            font-size: 1.2rem;
+        }
+        
+        .path-title {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .path-description {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .path-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #667eea;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .path-action:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .goal-card {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 2px solid #e1f5fe;
+        }
+        
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .goal-title {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .goal-progress {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .goal-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+        
+        .goal-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        .goal-description {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 768px) {
+            .learning-paths-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .topic-analysis {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+    </style>
+
+    <script>
+        // Analytics Dashboard JavaScript
+        class AnalyticsDashboard {
+            constructor() {
+                this.performanceData = this.loadPerformanceData();
+                this.achievements = this.loadAchievements();
+                this.initializeCharts();
+                this.updateStats();
+                this.renderAchievements();
+                this.generateInsights();
+            }
+
+            loadPerformanceData() {
+                const data = localStorage.getItem('quizzly_analytics');
+                if (data) {
+                    return JSON.parse(data);
+                }
+                return {
+                    quizzes: [],
+                    topics: {},
+                    streak: 0,
+                    totalQuizzes: 0,
+                    averageScore: 0
+                };
+            }
+
+            loadAchievements() {
+                const achievements = localStorage.getItem('quizzly_achievements');
+                if (achievements) {
+                    return JSON.parse(achievements);
+                }
+                return [];
+            }
+
+            savePerformanceData() {
+                localStorage.setItem('quizzly_analytics', JSON.stringify(this.performanceData));
+            }
+
+            saveAchievements() {
+                localStorage.setItem('quizzly_achievements', JSON.stringify(this.achievements));
+            }
+
+            updateStats() {
+                document.getElementById('totalQuizzes').textContent = this.performanceData.totalQuizzes;
+                document.getElementById('averageScore').textContent = Math.round(this.performanceData.averageScore) + '%';
+                document.getElementById('currentStreak').textContent = this.performanceData.streak;
+                document.getElementById('achievements').textContent = this.achievements.filter(a => a.unlocked).length;
+            }
+
+            initializeCharts() {
+                this.createPerformanceChart();
+                this.createTopicChart();
+            }
+
+            createPerformanceChart() {
+                const ctx = document.getElementById('performanceChart').getContext('2d');
+                const labels = this.performanceData.quizzes.map((_, index) => `Quiz ${index + 1}`);
+                const scores = this.performanceData.quizzes.map(quiz => quiz.score);
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Score (%)',
+                            data: scores,
+                            borderColor: '#4CAF50',
+                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            createTopicChart() {
+                const ctx = document.getElementById('topicChart').getContext('2d');
+                const topics = Object.keys(this.performanceData.topics);
+                const scores = topics.map(topic => this.performanceData.topics[topic].averageScore);
+
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: topics,
+                        datasets: [{
+                            data: scores,
+                            backgroundColor: [
+                                '#4CAF50',
+                                '#2196F3',
+                                '#FF9800',
+                                '#9C27B0',
+                                '#F44336',
+                                '#00BCD4'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+                
+                // Render difficulty analysis and topic mastery
+                this.renderDifficultyAnalysis();
+                this.renderTopicMastery();
+                
+                // Render learning paths
+                this.renderLearningPaths();
+            }
+            
+            renderDifficultyAnalysis() {
+                const difficultyGrid = document.getElementById('difficultyGrid');
+                const difficultyStats = {
+                    beginner: { totalScore: 0, count: 0, quizzes: [] },
+                    intermediate: { totalScore: 0, count: 0, quizzes: [] },
+                    advanced: { totalScore: 0, count: 0, quizzes: [] }
+                };
+                
+                // Analyze quizzes by difficulty
+                this.performanceData.quizzes.forEach(quiz => {
+                    const difficulty = quiz.difficulty || 'intermediate';
+                    if (difficultyStats[difficulty]) {
+                        difficultyStats[difficulty].totalScore += quiz.score;
+                        difficultyStats[difficulty].count++;
+                        difficultyStats[difficulty].quizzes.push(quiz);
+                    }
+                });
+                
+                const difficulties = [
+                    { key: 'beginner', name: 'Beginner', icon: '🌱', color: '#4CAF50' },
+                    { key: 'intermediate', name: 'Intermediate', icon: '🔥', color: '#FF9800' },
+                    { key: 'advanced', name: 'Advanced', icon: '🚀', color: '#F44336' }
+                ];
+                
+                difficultyGrid.innerHTML = '';
+                
+                difficulties.forEach(diff => {
+                    const stats = difficultyStats[diff.key];
+                    const averageScore = stats.count > 0 ? Math.round(stats.totalScore / stats.count) : 0;
+                    
+                    const card = document.createElement('div');
+                    card.className = `difficulty-card ${diff.key}`;
+                    card.innerHTML = `
+                        <div class="difficulty-header">
+                            <span class="difficulty-icon">${diff.icon}</span>
+                            <span class="difficulty-title">${diff.name}</span>
+                        </div>
+                        <div class="difficulty-stats">
+                            <span class="difficulty-score">${averageScore}%</span>
+                            <span class="difficulty-count">${stats.count} quizzes</span>
+                        </div>
+                        <div class="difficulty-progress">
+                            <div class="difficulty-progress-fill ${diff.key}" style="width: ${averageScore}%"></div>
+                        </div>
+                    `;
+                    
+                    difficultyGrid.appendChild(card);
+                });
+            }
+            
+            renderTopicMastery() {
+                const masteryGrid = document.getElementById('masteryGrid');
+                const topicMastery = {};
+                
+                // Calculate mastery for each topic
+                this.performanceData.quizzes.forEach(quiz => {
+                    const topic = quiz.topic || 'General';
+                    if (!topicMastery[topic]) {
+                        topicMastery[topic] = { totalScore: 0, count: 0, quizzes: [] };
+                    }
+                    topicMastery[topic].totalScore += quiz.score;
+                    topicMastery[topic].count++;
+                    topicMastery[topic].quizzes.push(quiz);
+                });
+                
+                masteryGrid.innerHTML = '';
+                
+                Object.keys(topicMastery).forEach(topic => {
+                    const stats = topicMastery[topic];
+                    const averageScore = Math.round(stats.totalScore / stats.count);
+                    
+                    // Determine mastery level
+                    let masteryLevel, masteryClass;
+                    if (averageScore >= 95) {
+                        masteryLevel = 'Expert';
+                        masteryClass = 'expert';
+                    } else if (averageScore >= 85) {
+                        masteryLevel = 'Advanced';
+                        masteryClass = 'advanced';
+                    } else if (averageScore >= 70) {
+                        masteryLevel = 'Intermediate';
+                        masteryClass = 'intermediate';
+                    } else {
+                        masteryLevel = 'Beginner';
+                        masteryClass = 'beginner';
+                    }
+                    
+                    const card = document.createElement('div');
+                    card.className = 'mastery-card';
+                    card.innerHTML = `
+                        <div class="mastery-header">
+                            <span class="mastery-topic">${topic}</span>
+                            <span class="mastery-level ${masteryClass}">${masteryLevel}</span>
+                        </div>
+                        <div class="mastery-progress">
+                            <div class="mastery-progress-fill" style="width: ${averageScore}%"></div>
+                        </div>
+                        <div class="mastery-stats">
+                            <span>Average: ${averageScore}%</span>
+                            <span>${stats.count} quizzes</span>
+                        </div>
+                    `;
+                    
+                    masteryGrid.appendChild(card);
+                });
+            }
+            
+            renderLearningPaths() {
+                this.renderPathRecommendations();
+                this.renderLearningGoals();
+            }
+            
+            renderPathRecommendations() {
+                const pathRecommendations = document.getElementById('pathRecommendations');
+                const recommendations = this.generateLearningRecommendations();
+                
+                pathRecommendations.innerHTML = '<h4>🎯 Recommended Next Steps</h4>';
+                
+                recommendations.forEach(rec => {
+                    const card = document.createElement('div');
+                    card.className = `path-card ${rec.type}`;
+                    card.innerHTML = `
+                        <div class="path-header">
+                            <span class="path-icon">${rec.icon}</span>
+                            <span class="path-title">${rec.title}</span>
+                        </div>
+                        <div class="path-description">${rec.description}</div>
+                        <a href="/form" class="path-action">
+                            ${rec.actionText} →
+                        </a>
+                    `;
+                    pathRecommendations.appendChild(card);
+                });
+            }
+            
+            renderLearningGoals() {
+                const learningGoals = document.getElementById('learningGoals');
+                const goals = this.generateLearningGoals();
+                
+                learningGoals.innerHTML = '<h4>🎯 Your Learning Goals</h4>';
+                
+                goals.forEach(goal => {
+                    const card = document.createElement('div');
+                    card.className = 'goal-card';
+                    card.innerHTML = `
+                        <div class="goal-header">
+                            <span class="goal-title">${goal.title}</span>
+                            <span class="goal-progress">${goal.progress}%</span>
+                        </div>
+                        <div class="goal-bar">
+                            <div class="goal-bar-fill" style="width: ${goal.progress}%"></div>
+                        </div>
+                        <div class="goal-description">${goal.description}</div>
+                    `;
+                    learningGoals.appendChild(card);
+                });
+            }
+            
+            generateLearningRecommendations() {
+                const recommendations = [];
+                const topics = Object.keys(this.performanceData.topics);
+                const difficulties = ['beginner', 'intermediate', 'advanced'];
+                
+                // Analyze performance patterns
+                const weakTopics = topics.filter(topic => 
+                    this.performanceData.topics[topic].averageScore < 70
+                );
+                const strongTopics = topics.filter(topic => 
+                    this.performanceData.topics[topic].averageScore >= 85
+                );
+                
+                // Recommendation 1: Focus on weak areas
+                if (weakTopics.length > 0) {
+                    recommendations.push({
+                        type: 'weakness',
+                        icon: '📚',
+                        title: 'Strengthen Weak Areas',
+                        description: `Focus on ${weakTopics[0]} - your average score is ${Math.round(this.performanceData.topics[weakTopics[0]].averageScore)}%. Try beginner-level videos to build fundamentals.`,
+                        actionText: 'Practice Fundamentals'
+                    });
+                }
+                
+                // Recommendation 2: Advance in strong areas
+                if (strongTopics.length > 0) {
+                    recommendations.push({
+                        type: 'strength',
+                        icon: '🚀',
+                        title: 'Level Up Your Strengths',
+                        description: `You're excelling in ${strongTopics[0]}! Try advanced-level content to challenge yourself further.`,
+                        actionText: 'Take Advanced Quiz'
+                    });
+                }
+                
+                // Recommendation 3: Explore new topics
+                if (topics.length < 3) {
+                    recommendations.push({
+                        type: 'opportunity',
+                        icon: '🌟',
+                        title: 'Explore New Topics',
+                        description: 'You\'ve mastered a few topics! Try exploring new educational content to broaden your knowledge.',
+                        actionText: 'Discover New Topics'
+                    });
+                }
+                
+                // Recommendation 4: Consistency
+                if (this.performanceData.totalQuizzes < 5) {
+                    recommendations.push({
+                        type: 'opportunity',
+                        icon: '📈',
+                        title: 'Build Learning Habits',
+                        description: 'Keep practicing regularly! Consistent learning leads to better retention and understanding.',
+                        actionText: 'Continue Learning'
+                    });
+                }
+                
+                return recommendations.slice(0, 3); // Show max 3 recommendations
+            }
+            
+            generateLearningGoals() {
+                const goals = [];
+                const totalQuizzes = this.performanceData.totalQuizzes;
+                const averageScore = this.performanceData.averageScore;
+                
+                // Goal 1: Quiz completion milestone
+                const nextMilestone = Math.ceil(totalQuizzes / 5) * 5;
+                const quizProgress = (totalQuizzes % 5) * 20;
+                goals.push({
+                    title: `Complete ${nextMilestone} Quizzes`,
+                    progress: quizProgress,
+                    description: `You've completed ${totalQuizzes} quizzes. Keep going to reach ${nextMilestone}!`
+                });
+                
+                // Goal 2: Score improvement
+                const targetScore = Math.min(95, averageScore + 10);
+                const scoreProgress = Math.min(100, (averageScore / targetScore) * 100);
+                goals.push({
+                    title: `Achieve ${targetScore}% Average Score`,
+                    progress: scoreProgress,
+                    description: `Your current average is ${averageScore}%. Aim for ${targetScore}% to improve your performance!`
+                });
+                
+                // Goal 3: Topic mastery
+                const topics = Object.keys(this.performanceData.topics);
+                const masteredTopics = topics.filter(topic => 
+                    this.performanceData.topics[topic].averageScore >= 85
+                ).length;
+                const masteryProgress = topics.length > 0 ? (masteredTopics / topics.length) * 100 : 0;
+                goals.push({
+                    title: 'Master All Topics',
+                    progress: masteryProgress,
+                    description: `Master ${topics.length} topics by scoring 85%+ in each. You've mastered ${masteredTopics}/${topics.length} topics.`
+                });
+                
+                return goals;
+            }
+
+            renderAchievements() {
+                const grid = document.getElementById('achievementsGrid');
+                const allAchievements = [
+                    {
+                        id: 'first_quiz',
+                        title: 'First Steps',
+                        description: 'Complete your first quiz',
+                        icon: '🎯',
+                        unlocked: this.achievements.some(a => a.id === 'first_quiz')
+                    },
+                    {
+                        id: 'perfect_score',
+                        title: 'Perfectionist',
+                        description: 'Score 100% on a quiz',
+                        icon: '💯',
+                        unlocked: this.achievements.some(a => a.id === 'perfect_score')
+                    },
+                    {
+                        id: 'streak_5',
+                        title: 'On Fire',
+                        description: 'Complete 5 quizzes in a row',
+                        icon: '🔥',
+                        unlocked: this.achievements.some(a => a.id === 'streak_5')
+                    },
+                    {
+                        id: 'topic_master',
+                        title: 'Topic Master',
+                        description: 'Score 90%+ in all topics',
+                        icon: '🧠',
+                        unlocked: this.achievements.some(a => a.id === 'topic_master')
+                    }
+                ];
+
+                grid.innerHTML = allAchievements.map(achievement => `
+                    <div class="achievement-badge ${achievement.unlocked ? '' : 'locked'}">
+                        <div class="achievement-icon">${achievement.icon}</div>
+                        <div class="achievement-title">${achievement.title}</div>
+                        <div class="achievement-desc">${achievement.description}</div>
+                    </div>
+                `).join('');
+            }
+
+            generateInsights() {
+                const container = document.getElementById('insightsContainer');
+                const insights = this.generateLearningInsights();
+                
+                container.innerHTML = insights.map(insight => `
+                    <div class="insight-card">
+                        <h4>${insight.title}</h4>
+                        <p>${insight.description}</p>
+                    </div>
+                `).join('');
+            }
+
+            generateLearningInsights() {
+                const insights = [];
+                
+                if (this.performanceData.totalQuizzes === 0) {
+                    insights.push({
+                        title: '🚀 Ready to Start?',
+                        description: 'Take your first quiz to begin tracking your learning progress!'
+                    });
+                } else {
+                    if (this.performanceData.averageScore > 80) {
+                        insights.push({
+                            title: '🌟 Excellent Performance!',
+                            description: 'You\'re doing great! Keep up the excellent work.'
+                        });
+                    }
+                    
+                    if (this.performanceData.streak > 3) {
+                        insights.push({
+                            title: '🔥 Streak Master!',
+                            description: `You're on a ${this.performanceData.streak}-quiz streak! Consistency is key to learning.`
+                        });
+                    }
+                    
+                    const weakTopics = Object.entries(this.performanceData.topics)
+                        .filter(([topic, data]) => data.averageScore < 70)
+                        .map(([topic]) => topic);
+                    
+                    if (weakTopics.length > 0) {
+                        insights.push({
+                            title: '📚 Focus Areas',
+                            description: `Consider reviewing: ${weakTopics.join(', ')}`
+                        });
+                    }
+                }
+                
+                return insights;
+            }
+
+            // Method to be called when a quiz is completed
+            static recordQuizCompletion(quizData) {
+                const dashboard = new AnalyticsDashboard();
+                
+                // Add quiz to performance data
+                dashboard.performanceData.quizzes.push({
+                    score: quizData.score,
+                    date: new Date().toISOString(),
+                    topic: quizData.topic || 'General'
+                });
+                
+                // Update totals
+                dashboard.performanceData.totalQuizzes++;
+                dashboard.performanceData.averageScore = dashboard.calculateAverageScore();
+                
+                // Update topic performance
+                if (quizData.topic) {
+                    if (!dashboard.performanceData.topics[quizData.topic]) {
+                        dashboard.performanceData.topics[quizData.topic] = {
+                            totalQuizzes: 0,
+                            totalScore: 0,
+                            averageScore: 0
+                        };
+                    }
+                    dashboard.performanceData.topics[quizData.topic].totalQuizzes++;
+                    dashboard.performanceData.topics[quizData.topic].totalScore += quizData.score;
+                    dashboard.performanceData.topics[quizData.topic].averageScore = 
+                        dashboard.performanceData.topics[quizData.topic].totalScore / 
+                        dashboard.performanceData.topics[quizData.topic].totalQuizzes;
+                }
+                
+                // Update streak
+                dashboard.updateStreak();
+                
+                // Check for new achievements
+                dashboard.checkAchievements(quizData);
+                
+                // Save data
+                dashboard.savePerformanceData();
+                dashboard.saveAchievements();
+            }
+
+            calculateAverageScore() {
+                if (this.performanceData.quizzes.length === 0) return 0;
+                const total = this.performanceData.quizzes.reduce((sum, quiz) => sum + quiz.score, 0);
+                return total / this.performanceData.quizzes.length;
+            }
+
+            updateStreak() {
+                // Simple streak calculation - in a real app, you'd check dates
+                this.performanceData.streak++;
+            }
+
+            checkAchievements(quizData) {
+                const newAchievements = [];
+                
+                // First quiz achievement
+                if (this.performanceData.totalQuizzes === 1) {
+                    newAchievements.push({
+                        id: 'first_quiz',
+                        title: 'First Steps',
+                        description: 'Complete your first quiz',
+                        icon: '🎯',
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                // Perfect score achievement
+                if (quizData.score === 100) {
+                    newAchievements.push({
+                        id: 'perfect_score',
+                        title: 'Perfectionist',
+                        description: 'Score 100% on a quiz',
+                        icon: '💯',
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                // Streak achievements
+                if (this.performanceData.streak === 3) {
+                    newAchievements.push({
+                        id: 'streak_3',
+                        title: 'Getting Started',
+                        description: 'Complete 3 quizzes in a row',
+                        icon: '🔥',
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                if (this.performanceData.streak === 5) {
+                    newAchievements.push({
+                        id: 'streak_5',
+                        title: 'On Fire',
+                        description: 'Complete 5 quizzes in a row',
+                        icon: '🔥',
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                if (this.performanceData.streak === 10) {
+                    newAchievements.push({
+                        id: 'streak_10',
+                        title: 'Unstoppable',
+                        description: 'Complete 10 quizzes in a row',
+                        icon: '🚀',
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                // Score-based achievements
+                if (quizData.score >= 90 && quizData.score < 100) {
+                    newAchievements.push({
+                        id: 'excellent_score',
+                        title: 'Excellent Work',
+                        description: 'Score 90% or higher',
+                        icon: '⭐',
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                // Topic mastery achievements
+                const topicScores = Object.values(this.performanceData.topics);
+                const allTopicsMastered = topicScores.length > 0 && topicScores.every(topic => topic.averageScore >= 90);
+                if (allTopicsMastered && topicScores.length >= 3) {
+                    newAchievements.push({
+                        id: 'topic_master',
+                        title: 'Topic Master',
+                        description: 'Score 90%+ in all topics',
+                        icon: '🧠',
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                // Speed achievements (if we track time)
+                if (quizData.completionTime && quizData.completionTime < 60) {
+                    newAchievements.push({
+                        id: 'speed_demon',
+                        title: 'Speed Demon',
+                        description: 'Complete a quiz in under 1 minute',
+                        icon: '⚡',
+                        unlocked: true,
+                        date: new Date().toISOString()
+                    });
+                }
+                
+                // Add new achievements
+                newAchievements.forEach(achievement => {
+                    if (!this.achievements.some(a => a.id === achievement.id)) {
+                        this.achievements.push(achievement);
+                        // Show achievement notification
+                        this.showAchievementNotification(achievement);
+                    }
+                });
+            }
+            
+            showAchievementNotification(achievement) {
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.className = 'achievement-notification';
+                notification.innerHTML = `
+                    <div class="achievement-notification-content">
+                        <div class="achievement-icon-large">${achievement.icon}</div>
+                        <div class="achievement-text">
+                            <div class="achievement-title">🏆 Achievement Unlocked!</div>
+                            <div class="achievement-name">${achievement.title}</div>
+                            <div class="achievement-desc">${achievement.description}</div>
+                        </div>
+                    </div>
+                `;
+                
+                // Add styles
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+                    color: #2c3e50;
+                    padding: 1rem;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 32px rgba(255, 215, 0, 0.4);
+                    z-index: 10000;
+                    animation: slideInRight 0.5s ease-out;
+                    max-width: 300px;
+                `;
+                
+                // Add to page
+                document.body.appendChild(notification);
+                
+                // Remove after 5 seconds
+                setTimeout(() => {
+                    notification.style.animation = 'slideOutRight 0.5s ease-in';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                        }
+                    }, 500);
+                }, 5000);
+            }
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            new AnalyticsDashboard();
+        });
+    </script>
+</body>
+</html>

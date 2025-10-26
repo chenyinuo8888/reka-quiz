@@ -457,6 +457,16 @@ def form_page() -> str:
 
     return render_template('form.html', videos=template_videos)
 
+@app.route('/analytics')
+def analytics() -> str:
+    """
+    Serve the analytics dashboard page.
+    
+    Returns:
+        str: Rendered HTML template for the analytics page
+    """
+    return render_template('analytics.html')
+
 
 @app.route('/api/upload_video', methods=['POST'])
 def upload_video() -> Dict[str, Any]:
