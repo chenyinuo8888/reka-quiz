@@ -266,15 +266,13 @@ def generate_quiz_questions(video_id: str, analysis: Dict[str, Any]) -> Dict[str
     
     Create a quiz with the following structure:
     
-    1. **Multiple Choice Questions (3 questions)**: Test understanding of key concepts
-    2. **Short Answer Questions (2 questions)**: Test deeper comprehension  
-    3. **Problem-Solving Question (1 question)**: Test application of concepts
+    1. **Multiple Choice Questions (6 questions)**: Test understanding of key concepts
     
     For each question, provide:
     - question_text: The question itself
-    - question_type: "multiple_choice", "short_answer", or "problem_solving"
-    - options: Array of choices (for multiple choice only)
-    - correct_answer: The correct answer
+    - question_type: "multiple_choice" (all questions should be multiple choice)
+    - options: Array of 4 choices (A, B, C, D)
+    - correct_answer: The correct answer (just the letter, e.g., "A", "B", "C", or "D")
     - explanation: Why this answer is correct
     - difficulty_points: 1-5 scale
     - concept_tested: Which key concept this tests
@@ -304,6 +302,8 @@ def generate_quiz_questions(video_id: str, analysis: Dict[str, Any]) -> Dict[str
     - Appropriate for the difficulty level
     - Test actual understanding, not just memorization
     - Include clear explanations for learning
+    - ALL questions must be multiple choice with exactly 4 options (A, B, C, D)
+    - Correct answers should be just the letter (A, B, C, or D)
     """
 
     payload = {
@@ -605,9 +605,12 @@ def generate_quiz() -> Dict[str, Any]:
 
     # Call the quiz generation function
     quiz_data = generate_quiz_questions(video_id, analysis)
+    
+    # Debug: print the quiz_data to see what we're getting
+    print(f"Quiz data received: {quiz_data}")
 
     # Check if quiz generation was successful
-    if 'error' in quiz_data:
+    if 'error' in quiz_data and quiz_data['error']:
         return jsonify({"success": False, "error": quiz_data['error']}), 500
 
     # Try to parse the chat response as JSON
@@ -615,16 +618,47 @@ def generate_quiz() -> Dict[str, Any]:
     if chat_response:
         try:
             import json
-            # Parse the JSON response
-            parsed_quiz = json.loads(chat_response)
+            import re
             
-            # Validate that we have the expected structure
-            if isinstance(parsed_quiz, dict) and 'questions' in parsed_quiz:
-                return jsonify({
-                    "success": True, 
-                    "quiz": parsed_quiz,
-                    "message": "Quiz generated successfully"
-                })
+            # Extract JSON from markdown code blocks if present
+            json_text = chat_response
+            if '```json' in chat_response:
+                # Extract JSON from markdown code blocks
+                match = re.search(r'```json\s*\n(.*?)\n```', chat_response, re.DOTALL)
+                if match:
+                    json_text = match.group(1)
+            elif '```' in chat_response:
+                # Extract JSON from generic code blocks
+                match = re.search(r'```\s*\n(.*?)\n```', chat_response, re.DOTALL)
+                if match:
+                    json_text = match.group(1)
+            
+            # Parse the JSON response
+            parsed_quiz = json.loads(json_text)
+            
+            # Handle the actual response format from Reka API
+            if isinstance(parsed_quiz, dict):
+                # Check if it has sections (the actual format)
+                if 'sections' in parsed_quiz:
+                    return jsonify({
+                        "success": True, 
+                        "quiz": parsed_quiz,
+                        "message": "Quiz generated successfully"
+                    })
+                # Check if it has questions (expected format)
+                elif 'questions' in parsed_quiz:
+                    return jsonify({
+                        "success": True, 
+                        "quiz": parsed_quiz,
+                        "message": "Quiz generated successfully"
+                    })
+                else:
+                    # Return the parsed response anyway
+                    return jsonify({
+                        "success": True,
+                        "quiz": parsed_quiz,
+                        "message": "Quiz generated successfully"
+                    })
             else:
                 # If structure is wrong, return the raw response
                 return jsonify({
@@ -637,7 +671,7 @@ def generate_quiz() -> Dict[str, Any]:
             return jsonify({
                 "success": True,
                 "quiz": {"raw_response": chat_response},
-                "message": "Quiz generated but response format may be unexpected"
+                "message": f"Quiz generated but JSON parsing failed: {str(e)}"
             })
     
     # No chat response available
