@@ -27,7 +27,11 @@ _VIDEO_CACHE: Dict[str, Any] = {
 }
 
 # Track deleted video IDs to filter them out
-_DELETED_VIDEOS: set[str] = set()
+_DELETED_VIDEOS: set[str] = {
+    'b5f1c874-f168-40df-8d34-8f5d215fec90',  # Derivatives Organic Chemistry Tutor
+    '3247ed0f-ffef-4815-91bc-ec2051d834b1',  # Definition of the Derivative
+    '45f4099b-6ad5-4be7-a8ea-4c7ab3939d0b',  # Rick Astley video
+}
 
 
 def fetch_videos() -> List[Dict[str, Any]]:
@@ -701,7 +705,7 @@ def generate_quiz() -> Dict[str, Any]:
                 # Check if it has questions (expected format)
                 elif 'questions' in parsed_quiz:
                     return jsonify({
-                        "success": True, 
+                        "success": True,
                         "quiz": parsed_quiz,
                         "message": "Quiz generated successfully"
                     })

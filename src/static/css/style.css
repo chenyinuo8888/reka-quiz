@@ -21,17 +21,18 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #F1EEE7;
+    background: linear-gradient(135deg, #F1EEE7 0%, #E9F2F6 100%);
     color: #2E2F2F;
     line-height: 1.6;
+    transition: all 0.3s ease;
 }
 
 /* Header Styles */
 header {
-    background: linear-gradient(135deg, #0F1D34 0%, #203F72 100%);
+    background: linear-gradient(135deg, #0F1D34 0%, #203F72 50%, #2276FF 100%);
     color: #F1EEE7;
-    padding: 2rem 0;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    padding: 3rem 0;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
 }
 
 .header-content {
@@ -130,11 +131,12 @@ nav ul li a.active {
 
 /* Form Section */
 .form-section {
-    background-color: #fff;
-    border-radius: 12px;
-    padding: 2rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 16px;
+    padding: 2.5rem;
     margin: 2rem 0;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(34, 118, 255, 0.1);
 }
 
 .form-section h2 {
@@ -152,18 +154,36 @@ nav ul li a.active {
 }
 
 .image-card {
-    background-color: #E9F2F6;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #E9F2F6 100%);
+    border-radius: 12px;
     padding: 1rem;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.4s ease;
     border: 3px solid transparent;
     position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.image-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+    transition: left 0.5s;
+}
+
+.image-card:hover::before {
+    left: 100%;
 }
 
 .image-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 24px rgba(34, 118, 255, 0.2);
+    border-color: #2276FF;
 }
 
 .image-card.selected {
@@ -197,16 +217,36 @@ nav ul li a.active {
     color: #F1EEE7;
     padding: 1rem 3rem;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     font-size: 1.1rem;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(34, 118, 255, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn:hover::before {
+    width: 300px;
+    height: 300px;
 }
 
 .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(34, 118, 255, 0.4);
 }
 
 .btn:disabled {
