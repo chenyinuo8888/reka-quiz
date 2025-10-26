@@ -468,6 +468,73 @@ def analytics() -> str:
     return render_template('analytics.html')
 
 
+@app.route('/api/generate_explanations', methods=['POST'])
+def generate_explanations() -> Dict[str, Any]:
+    """
+    Generate personalized explanations for wrong answers.
+    
+    Expects JSON body: { "quiz_data": {...}, "user_answers": {...}, "video_analysis": {...} }
+    
+    Returns:
+        Dict[str, Any]: JSON response with personalized explanations
+    """
+    try:
+        data = request.get_json() or {}
+        quiz_data = data.get('quiz_data', {})
+        user_answers = data.get('user_answers', {})
+        video_analysis = data.get('video_analysis', {})
+        
+        if not quiz_data or not user_answers:
+            return jsonify({"error": "Quiz data and user answers are required"}), 400
+        
+        print(f"Generating personalized explanations for {len(user_answers)} answers")
+        
+        # Generate personalized explanations
+        explanations = generate_personalized_explanations(quiz_data, user_answers, video_analysis)
+        
+        return jsonify({
+            "success": True,
+            "explanations": explanations,
+            "message": "Personalized explanations generated successfully"
+        })
+        
+    except Exception as e:
+        print(f"Error generating explanations: {str(e)}")
+        return jsonify({"error": "Failed to generate explanations"}), 500
+
+
+@app.route('/api/smart_recommendations', methods=['POST'])
+def smart_recommendations() -> Dict[str, Any]:
+    """
+    Generate smart content recommendations based on user performance.
+    
+    Expects JSON body: { "user_performance": {...}, "current_topic": "...", "video_analysis": {...} }
+    
+    Returns:
+        Dict[str, Any]: JSON response with smart recommendations
+    """
+    try:
+        data = request.get_json() or {}
+        user_performance = data.get('user_performance', {})
+        current_topic = data.get('current_topic', 'General')
+        video_analysis = data.get('video_analysis', {})
+        
+        print(f"Generating smart recommendations for topic: {current_topic}")
+        
+        # Generate smart recommendations
+        recommendations = generate_smart_recommendations(user_performance, current_topic, video_analysis)
+        
+        return jsonify({
+            "success": True,
+            "recommendations": recommendations,
+            "message": "Smart recommendations generated successfully"
+        })
+        
+    except Exception as e:
+        print(f"Error generating recommendations: {str(e)}")
+        return jsonify({"error": "Failed to generate recommendations"}), 500
+
+
 @app.route('/api/upload_video', methods=['POST'])
 def upload_video() -> Dict[str, Any]:
     """
@@ -722,6 +789,275 @@ def check_video_status() -> Dict[str, Any]:
         return jsonify({"success": False, "error": f"Status check failed: {e}"}), 500
 
 
+def generate_smart_recommendations(user_performance: Dict[str, Any], current_topic: str, video_analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate smart content recommendations based on user performance and learning patterns.
+    
+    Args:
+        user_performance: User's historical performance data
+        current_topic: The current topic being studied
+        video_analysis: Analysis of the current video content
+        
+    Returns:
+        Dict[str, Any]: Smart recommendations for continued learning
+    """
+    try:
+        # Analyze user performance patterns
+        total_quizzes = user_performance.get('total_quizzes', 0)
+        average_score = user_performance.get('average_score', 0)
+        recent_scores = user_performance.get('recent_scores', [])
+        topics = user_performance.get('topics', {})
+        
+        # Generate recommendations based on performance patterns
+        recommendations = {
+            'next_videos': [],
+            'learning_paths': [],
+            'skill_improvements': [],
+            'topic_suggestions': []
+        }
+        
+        # Recommendation 1: Next videos based on current topic
+        if current_topic and current_topic != 'General':
+            topic_recommendations = generate_topic_based_recommendations(current_topic, video_analysis)
+            recommendations['next_videos'] = topic_recommendations
+        
+        # Recommendation 2: Learning paths based on performance
+        if total_quizzes >= 3:
+            learning_paths = generate_learning_paths(user_performance, current_topic)
+            recommendations['learning_paths'] = learning_paths
+        
+        # Recommendation 3: Skill improvements for weak areas
+        if recent_scores:
+            recent_avg = sum(recent_scores[-3:]) / min(3, len(recent_scores))
+            if recent_avg < 70:
+                skill_improvements = generate_skill_improvements(current_topic, recent_avg)
+                recommendations['skill_improvements'] = skill_improvements
+        
+        # Recommendation 4: Topic suggestions for exploration
+        if len(topics) < 5:  # Encourage topic diversity
+            topic_suggestions = generate_topic_suggestions(current_topic, topics)
+            recommendations['topic_suggestions'] = topic_suggestions
+        
+        return recommendations
+        
+    except Exception as e:
+        print(f"Error generating smart recommendations: {str(e)}")
+        return {}
+
+
+def generate_topic_based_recommendations(current_topic: str, video_analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Generate video recommendations based on current topic."""
+    # This would typically query a video database or use AI to find related content
+    # For now, we'll return mock recommendations
+    return [
+        {
+            'title': f'Advanced {current_topic} Concepts',
+            'description': f'Deep dive into advanced {current_topic} topics to build on your current knowledge',
+            'difficulty': 'advanced',
+            'estimated_time': '15-20 minutes',
+            'reason': 'Build on your current understanding'
+        },
+        {
+            'title': f'{current_topic} Fundamentals Review',
+            'description': f'Review the fundamental concepts of {current_topic} to strengthen your foundation',
+            'difficulty': 'beginner',
+            'estimated_time': '10-15 minutes',
+            'reason': 'Strengthen your foundation'
+        }
+    ]
+
+
+def generate_learning_paths(user_performance: Dict[str, Any], current_topic: str) -> List[Dict[str, Any]]:
+    """Generate learning paths based on user performance."""
+    average_score = user_performance.get('average_score', 0)
+    
+    if average_score >= 85:
+        return [
+            {
+                'path': 'Expert Track',
+                'description': 'You\'re excelling! Try advanced topics and interdisciplinary connections',
+                'next_steps': ['Advanced concepts', 'Cross-topic connections', 'Teaching others'],
+                'difficulty': 'advanced'
+            }
+        ]
+    elif average_score >= 70:
+        return [
+            {
+                'path': 'Intermediate Progression',
+                'description': 'Great progress! Focus on applying concepts and building connections',
+                'next_steps': ['Practical applications', 'Problem solving', 'Real-world examples'],
+                'difficulty': 'intermediate'
+            }
+        ]
+    else:
+        return [
+            {
+                'path': 'Foundation Building',
+                'description': 'Let\'s strengthen your fundamentals with focused practice',
+                'next_steps': ['Basic concepts', 'Step-by-step learning', 'Regular practice'],
+                'difficulty': 'beginner'
+            }
+        ]
+
+
+def generate_skill_improvements(current_topic: str, recent_avg: float) -> List[Dict[str, Any]]:
+    """Generate skill improvement recommendations."""
+    return [
+        {
+            'skill': f'{current_topic} Fundamentals',
+            'description': f'Focus on core {current_topic} concepts to improve your understanding',
+            'action': 'Practice basic concepts daily',
+            'resources': ['Beginner tutorials', 'Concept reviews', 'Practice exercises']
+        },
+        {
+            'skill': 'Test-taking Strategy',
+            'description': 'Improve your approach to quiz questions',
+            'action': 'Take your time and read questions carefully',
+            'resources': ['Question analysis', 'Time management', 'Answer strategies']
+        }
+    ]
+
+
+def generate_topic_suggestions(current_topic: str, existing_topics: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Generate topic suggestions for exploration."""
+    # This would typically use AI to suggest related topics
+    related_topics = {
+        'Mathematics': ['Statistics', 'Calculus', 'Algebra'],
+        'Science': ['Physics', 'Chemistry', 'Biology'],
+        'Technology': ['Programming', 'Data Science', 'AI'],
+        'History': ['World History', 'Art History', 'Political Science'],
+        'Language': ['Literature', 'Grammar', 'Communication']
+    }
+    
+    suggestions = []
+    for topic, related in related_topics.items():
+        if current_topic.lower() in topic.lower() or any(rt.lower() in current_topic.lower() for rt in related):
+            suggestions.extend([
+                {
+                    'topic': rt,
+                    'description': f'Explore {rt} to broaden your knowledge base',
+                    'difficulty': 'intermediate',
+                    'connection': f'Related to {current_topic}'
+                } for rt in related[:2]  # Limit to 2 suggestions per category
+            ])
+    
+    return suggestions[:4]  # Return max 4 suggestions
+
+
+def generate_personalized_explanations(quiz_data: Dict[str, Any], user_answers: Dict[str, Any], video_analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate personalized explanations for wrong answers using AI.
+    
+    Args:
+        quiz_data: The quiz questions and correct answers
+        user_answers: User's submitted answers
+        video_analysis: Video content analysis for context
+        
+    Returns:
+        Dict[str, Any]: Personalized explanations for each question
+    """
+    try:
+        questions = quiz_data.get('questions', [])
+        explanations = {}
+        
+        for i, question in enumerate(questions):
+            question_id = f"question_{i}"
+            user_answer = user_answers.get(question_id, "")
+            correct_answer = question.get('correct_answer', "")
+            
+            # Only generate explanation if answer is wrong
+            if user_answer != correct_answer:
+                explanation_prompt = f"""
+                Generate a personalized explanation for a wrong answer in an educational quiz.
+                
+                Question: {question.get('question', '')}
+                User's Answer: {user_answer}
+                Correct Answer: {correct_answer}
+                Question Type: {question.get('question_type', 'multiple_choice')}
+                Video Topic: {video_analysis.get('topic', 'General')}
+                
+                Please provide:
+                1. A gentle explanation of why the user's answer was incorrect
+                2. The correct answer with clear reasoning
+                3. A helpful tip or mnemonic to remember the concept
+                4. A brief connection to the broader topic from the video
+                
+                Keep the tone encouraging and educational. Focus on learning rather than just correcting.
+                """
+                
+                # Call Reka API for personalized explanation
+                explanation_response = call_reka_vision_qa(explanation_prompt)
+                
+                if explanation_response and 'chat_response' in explanation_response:
+                    explanations[question_id] = {
+                        'question': question.get('question', ''),
+                        'user_answer': user_answer,
+                        'correct_answer': correct_answer,
+                        'explanation': explanation_response['chat_response'],
+                        'personalized': True
+                    }
+                else:
+                    # Fallback explanation
+                    explanations[question_id] = {
+                        'question': question.get('question', ''),
+                        'user_answer': user_answer,
+                        'correct_answer': correct_answer,
+                        'explanation': f"The correct answer is {correct_answer}. Let's review this concept together to help you understand it better.",
+                        'personalized': False
+                    }
+        
+        return explanations
+        
+    except Exception as e:
+        print(f"Error generating personalized explanations: {str(e)}")
+        return {}
+
+
+def calculate_adaptive_difficulty(base_difficulty: str, user_performance: Dict[str, Any]) -> str:
+    """
+    Calculate adaptive difficulty based on user performance.
+    
+    Args:
+        base_difficulty: The initially selected difficulty
+        user_performance: User's historical performance data
+        
+    Returns:
+        str: Adjusted difficulty level
+    """
+    if not user_performance:
+        return base_difficulty
+    
+    # Extract performance metrics
+    average_score = user_performance.get('average_score', 0)
+    recent_scores = user_performance.get('recent_scores', [])
+    total_quizzes = user_performance.get('total_quizzes', 0)
+    
+    # Need at least 3 quizzes for adaptive adjustment
+    if total_quizzes < 3:
+        return base_difficulty
+    
+    # Calculate recent performance trend
+    if len(recent_scores) >= 3:
+        recent_avg = sum(recent_scores[-3:]) / 3
+    else:
+        recent_avg = average_score
+    
+    # Adaptive difficulty logic
+    difficulty_levels = ['beginner', 'intermediate', 'advanced']
+    current_index = difficulty_levels.index(base_difficulty)
+    
+    # If consistently scoring high (90%+), increase difficulty
+    if recent_avg >= 90 and current_index < 2:
+        return difficulty_levels[current_index + 1]
+    
+    # If consistently scoring low (60%-), decrease difficulty
+    elif recent_avg < 60 and current_index > 0:
+        return difficulty_levels[current_index - 1]
+    
+    # If scoring in middle range (60-89%), keep current difficulty
+    return base_difficulty
+
+
 @app.route('/api/generate_quiz', methods=['POST'])
 def generate_quiz() -> Dict[str, Any]:
     """
@@ -737,6 +1073,7 @@ def generate_quiz() -> Dict[str, Any]:
     analysis = data.get('analysis', {})
     difficulty = data.get('difficulty', 'intermediate')
     question_types = data.get('question_types', ['multiple_choice'])
+    user_performance = data.get('user_performance', {})
 
     if not video_id:
         return jsonify({"error": "No video ID provided"}), 400
@@ -746,9 +1083,14 @@ def generate_quiz() -> Dict[str, Any]:
 
     # Debug: print the question types being requested
     print(f"Requested question types: {question_types}")
+    print(f"User performance data: {user_performance}")
     
-    # Call the quiz generation function with question types and difficulty
-    quiz_data = generate_quiz_questions(video_id, analysis, difficulty, question_types)
+    # Calculate adaptive difficulty based on user performance
+    adaptive_difficulty = calculate_adaptive_difficulty(difficulty, user_performance)
+    print(f"Adaptive difficulty calculated: {adaptive_difficulty}")
+    
+    # Call the quiz generation function with adaptive difficulty
+    quiz_data = generate_quiz_questions(video_id, analysis, adaptive_difficulty, question_types)
     
     # Debug: print the quiz_data to see what we're getting
     print(f"Quiz data received: {quiz_data}")
@@ -784,6 +1126,11 @@ def generate_quiz() -> Dict[str, Any]:
             if isinstance(parsed_quiz, dict):
                 # Check if it has sections (the actual format)
                 if 'sections' in parsed_quiz:
+                    # Add adaptive difficulty metadata
+                    parsed_quiz['adaptive_difficulty'] = adaptive_difficulty
+                    parsed_quiz['difficulty_adjustment'] = adaptive_difficulty != difficulty
+                    parsed_quiz['original_difficulty'] = difficulty
+                    
                     return jsonify({
                         "success": True, 
                         "quiz": parsed_quiz,
@@ -791,12 +1138,22 @@ def generate_quiz() -> Dict[str, Any]:
                     })
                 # Check if it has questions (expected format)
                 elif 'questions' in parsed_quiz:
+                    # Add adaptive difficulty metadata
+                    parsed_quiz['adaptive_difficulty'] = adaptive_difficulty
+                    parsed_quiz['difficulty_adjustment'] = adaptive_difficulty != difficulty
+                    parsed_quiz['original_difficulty'] = difficulty
+                    
                     return jsonify({
                         "success": True,
                         "quiz": parsed_quiz,
                         "message": "Quiz generated successfully"
                     })
                 else:
+                    # Add adaptive difficulty metadata
+                    parsed_quiz['adaptive_difficulty'] = adaptive_difficulty
+                    parsed_quiz['difficulty_adjustment'] = adaptive_difficulty != difficulty
+                    parsed_quiz['original_difficulty'] = difficulty
+                    
                     # Return the parsed response anyway
                     return jsonify({
                         "success": True,

@@ -532,7 +532,8 @@
               video_id: selectedVideoId,
               analysis: window.currentAnalysis,
               difficulty: 'intermediate',
-              question_types: selectedQuestionTypes
+              question_types: selectedQuestionTypes,
+              user_performance: getUserPerformanceData()
             })
             });
 
@@ -593,6 +594,14 @@
           console.log('Displaying quiz:', quiz);
           console.log('Quiz type:', typeof quiz);
           console.log('Quiz keys:', quiz ? Object.keys(quiz) : 'quiz is null/undefined');
+          
+          // Show adaptive difficulty notification if difficulty was adjusted
+          if (quiz.difficulty_adjustment) {
+            showAdaptiveDifficultyNotification(quiz.original_difficulty, quiz.adaptive_difficulty);
+          }
+          
+          // Store current quiz data for personalized explanations
+          window.currentQuiz = quiz;
           
           // Handle both structured and raw responses
           if (quiz && quiz.raw_response) {
@@ -892,6 +901,12 @@
             date: new Date().toISOString()
           };
           
+          // Generate personalized explanations for wrong answers
+          generatePersonalizedExplanations();
+          
+          // Generate smart recommendations
+          generateSmartRecommendations();
+          
           // Record quiz completion in analytics
           if (typeof AnalyticsDashboard !== 'undefined') {
             AnalyticsDashboard.recordQuizCompletion(analyticsData);
@@ -1180,6 +1195,321 @@ Try Quizzly - Your AI-powered quiz generator for educational videos! 🚀
             return;
           }
           window.open(selectedVideoUrl, '_blank');
+        }
+
+        // Show adaptive difficulty notification
+        function showAdaptiveDifficultyNotification(originalDifficulty, adaptiveDifficulty) {
+          const notification = document.createElement('div');
+          notification.className = 'adaptive-difficulty-notification';
+          notification.innerHTML = `
+            <div class="adaptive-notification-content">
+              <div class="adaptive-icon">🎯</div>
+              <div class="adaptive-text">
+                <div class="adaptive-title">Adaptive Difficulty Applied!</div>
+                <div class="adaptive-message">
+                  Based on your performance, we've adjusted the difficulty from 
+                  <span class="difficulty-badge ${originalDifficulty}">${originalDifficulty}</span> 
+                  to <span class="difficulty-badge ${adaptiveDifficulty}">${adaptiveDifficulty}</span>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          // Add styles
+          notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.4);
+            z-index: 10000;
+            animation: slideInDown 0.5s ease-out;
+            max-width: 400px;
+            text-align: center;
+          `;
+          
+          // Add to page
+          document.body.appendChild(notification);
+          
+          // Remove after 6 seconds
+          setTimeout(() => {
+            notification.style.animation = 'slideOutUp 0.5s ease-in';
+            setTimeout(() => {
+              if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+              }
+            }, 500);
+          }, 6000);
+        }
+
+        // Generate personalized explanations for wrong answers
+        async function generatePersonalizedExplanations() {
+          try {
+            // Collect user answers from the quiz
+            const userAnswers = {};
+            const quizQuestions = document.querySelectorAll('.quiz-question');
+            
+            quizQuestions.forEach((question, index) => {
+              const questionId = `question_${index}`;
+              const selectedInput = question.querySelector('input:checked, textarea, input[type="text"]');
+              
+              if (selectedInput) {
+                if (selectedInput.type === 'radio') {
+                  const optionIndex = selectedInput.value;
+                  const optionText = selectedInput.nextElementSibling?.textContent || '';
+                  userAnswers[questionId] = optionText;
+                } else {
+                  userAnswers[questionId] = selectedInput.value;
+                }
+              }
+            });
+            
+            // Send request to backend for personalized explanations
+            const response = await fetch('/api/generate_explanations', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                quiz_data: window.currentQuiz,
+                user_answers: userAnswers,
+                video_analysis: window.currentAnalysis
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.explanations) {
+              displayPersonalizedExplanations(data.explanations);
+            }
+            
+          } catch (error) {
+            console.error('Error generating personalized explanations:', error);
+          }
+        }
+        
+        // Generate smart recommendations
+        async function generateSmartRecommendations() {
+          try {
+            const userPerformance = getUserPerformanceData();
+            const currentTopic = window.currentAnalysis?.topic || 'General';
+            
+            const response = await fetch('/api/smart_recommendations', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                user_performance: userPerformance,
+                current_topic: currentTopic,
+                video_analysis: window.currentAnalysis
+              })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success && data.recommendations) {
+              displaySmartRecommendations(data.recommendations);
+            }
+            
+          } catch (error) {
+            console.error('Error generating smart recommendations:', error);
+          }
+        }
+        
+        // Display smart recommendations
+        function displaySmartRecommendations(recommendations) {
+          const resultsDiv = document.getElementById('quizResults');
+          
+          let recommendationsHtml = `
+            <div class="smart-recommendations-section">
+              <h3>🎯 Smart Learning Recommendations</h3>
+              <div class="recommendations-grid">
+          `;
+          
+          // Next Videos
+          if (recommendations.next_videos && recommendations.next_videos.length > 0) {
+            recommendationsHtml += `
+              <div class="recommendation-category">
+                <h4>📺 Recommended Next Videos</h4>
+                <div class="recommendation-cards">
+            `;
+            recommendations.next_videos.forEach(rec => {
+              recommendationsHtml += `
+                <div class="recommendation-card video-card">
+                  <div class="card-header">
+                    <span class="card-icon">🎬</span>
+                    <span class="card-title">${rec.title}</span>
+                  </div>
+                  <div class="card-content">
+                    <p class="card-description">${rec.description}</p>
+                    <div class="card-meta">
+                      <span class="difficulty-badge ${rec.difficulty}">${rec.difficulty}</span>
+                      <span class="time-estimate">${rec.estimated_time}</span>
+                    </div>
+                    <p class="card-reason">💡 ${rec.reason}</p>
+                  </div>
+                </div>
+              `;
+            });
+            recommendationsHtml += `</div></div>`;
+          }
+          
+          // Learning Paths
+          if (recommendations.learning_paths && recommendations.learning_paths.length > 0) {
+            recommendationsHtml += `
+              <div class="recommendation-category">
+                <h4>🛤️ Your Learning Path</h4>
+                <div class="recommendation-cards">
+            `;
+            recommendations.learning_paths.forEach(path => {
+              recommendationsHtml += `
+                <div class="recommendation-card path-card">
+                  <div class="card-header">
+                    <span class="card-icon">🎯</span>
+                    <span class="card-title">${path.path}</span>
+                  </div>
+                  <div class="card-content">
+                    <p class="card-description">${path.description}</p>
+                    <div class="next-steps">
+                      <h5>Next Steps:</h5>
+                      <ul>
+                        ${path.next_steps.map(step => `<li>${step}</li>`).join('')}
+                      </ul>
+                    </div>
+                    <span class="difficulty-badge ${path.difficulty}">${path.difficulty}</span>
+                  </div>
+                </div>
+              `;
+            });
+            recommendationsHtml += `</div></div>`;
+          }
+          
+          // Skill Improvements
+          if (recommendations.skill_improvements && recommendations.skill_improvements.length > 0) {
+            recommendationsHtml += `
+              <div class="recommendation-category">
+                <h4>💪 Skill Improvements</h4>
+                <div class="recommendation-cards">
+            `;
+            recommendations.skill_improvements.forEach(skill => {
+              recommendationsHtml += `
+                <div class="recommendation-card skill-card">
+                  <div class="card-header">
+                    <span class="card-icon">🔧</span>
+                    <span class="card-title">${skill.skill}</span>
+                  </div>
+                  <div class="card-content">
+                    <p class="card-description">${skill.description}</p>
+                    <div class="action-item">
+                      <strong>Action:</strong> ${skill.action}
+                    </div>
+                    <div class="resources">
+                      <strong>Resources:</strong>
+                      <ul>
+                        ${skill.resources.map(resource => `<li>${resource}</li>`).join('')}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              `;
+            });
+            recommendationsHtml += `</div></div>`;
+          }
+          
+          // Topic Suggestions
+          if (recommendations.topic_suggestions && recommendations.topic_suggestions.length > 0) {
+            recommendationsHtml += `
+              <div class="recommendation-category">
+                <h4>🌟 Explore New Topics</h4>
+                <div class="recommendation-cards">
+            `;
+            recommendations.topic_suggestions.forEach(topic => {
+              recommendationsHtml += `
+                <div class="recommendation-card topic-card">
+                  <div class="card-header">
+                    <span class="card-icon">📚</span>
+                    <span class="card-title">${topic.topic}</span>
+                  </div>
+                  <div class="card-content">
+                    <p class="card-description">${topic.description}</p>
+                    <div class="card-meta">
+                      <span class="difficulty-badge ${topic.difficulty}">${topic.difficulty}</span>
+                      <span class="connection">🔗 ${topic.connection}</span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            });
+            recommendationsHtml += `</div></div>`;
+          }
+          
+          recommendationsHtml += `
+              </div>
+            </div>
+          `;
+          
+          // Add recommendations to the results
+          resultsDiv.innerHTML += recommendationsHtml;
+        }
+
+        // Display personalized explanations
+        function displayPersonalizedExplanations(explanations) {
+          const resultsDiv = document.getElementById('quizResults');
+          const explanationsHtml = Object.keys(explanations).map(questionId => {
+            const explanation = explanations[questionId];
+            return `
+              <div class="personalized-explanation">
+                <div class="explanation-header">
+                  <span class="explanation-icon">🧠</span>
+                  <span class="explanation-title">Personalized Learning Feedback</span>
+                </div>
+                <div class="explanation-content">
+                  <div class="explanation-question">${explanation.question}</div>
+                  <div class="explanation-details">
+                    <div class="user-answer">Your answer: <span class="incorrect">${explanation.user_answer}</span></div>
+                    <div class="correct-answer">Correct answer: <span class="correct">${explanation.correct_answer}</span></div>
+                  </div>
+                  <div class="explanation-text">${explanation.explanation}</div>
+                </div>
+              </div>
+            `;
+          }).join('');
+          
+          // Add explanations to the results
+          resultsDiv.innerHTML += `
+            <div class="explanations-section">
+              <h3>🎯 Personalized Learning Feedback</h3>
+              ${explanationsHtml}
+            </div>
+          `;
+        }
+
+        // Get user performance data for adaptive difficulty
+        function getUserPerformanceData() {
+          const analyticsData = JSON.parse(localStorage.getItem('quizzly_analytics') || '{"quizzes": [], "topics": {}, "streak": 0, "totalQuizzes": 0}');
+          const quizzes = analyticsData.quizzes || [];
+          
+          if (quizzes.length === 0) {
+            return {};
+          }
+          
+          // Calculate performance metrics
+          const scores = quizzes.map(q => q.score);
+          const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+          const recentScores = scores.slice(-5); // Last 5 quizzes
+          
+          return {
+            total_quizzes: quizzes.length,
+            average_score: Math.round(averageScore),
+            recent_scores: recentScores,
+            topics: analyticsData.topics || {},
+            streak: analyticsData.streak || 0
+          };
         }
 
         // Achievement checking function for quiz completion
@@ -2075,6 +2405,28 @@ Try Quizzly - Your AI-powered quiz generator for educational videos! 🚀
             }
         }
         
+        @keyframes slideInDown {
+            from {
+                transform: translateX(-50%) translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOutUp {
+            from {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(-50%) translateY(-100%);
+                opacity: 0;
+            }
+        }
+        
         .achievement-notification {
             position: fixed;
             top: 20px;
@@ -2119,6 +2471,304 @@ Try Quizzly - Your AI-powered quiz generator for educational videos! 🚀
         .achievement-desc {
             font-size: 0.8rem;
             opacity: 0.8;
+        }
+        
+        /* Personalized Explanations Styles */
+        .explanations-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .explanations-section h3 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .personalized-explanation {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .personalized-explanation:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.15);
+        }
+        
+        .explanation-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .explanation-icon {
+            font-size: 1.2rem;
+        }
+        
+        .explanation-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+        
+        .explanation-content {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+        }
+        
+        .explanation-question {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        
+        .explanation-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .user-answer, .correct-answer {
+            font-size: 0.9rem;
+        }
+        
+        .user-answer .incorrect {
+            color: #dc3545;
+            font-weight: 600;
+        }
+        
+        .correct-answer .correct {
+            color: #28a745;
+            font-weight: 600;
+        }
+        
+        .explanation-text {
+            color: #495057;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            padding: 1rem;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+        
+        @media (max-width: 768px) {
+            .explanation-details {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+        }
+        
+        /* Smart Recommendations Styles */
+        .smart-recommendations-section {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e9ecef;
+        }
+        
+        .smart-recommendations-section h3 {
+            color: #2c3e50;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .recommendations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .recommendation-category {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 2px solid #e9ecef;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .recommendation-category h4 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .recommendation-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .recommendation-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        
+        .recommendation-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.15);
+        }
+        
+        .video-card {
+            border-left-color: #4CAF50;
+        }
+        
+        .path-card {
+            border-left-color: #FF9800;
+        }
+        
+        .skill-card {
+            border-left-color: #F44336;
+        }
+        
+        .topic-card {
+            border-left-color: #9C27B0;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .card-icon {
+            font-size: 1.2rem;
+        }
+        
+        .card-title {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 1rem;
+        }
+        
+        .card-content {
+            color: #495057;
+        }
+        
+        .card-description {
+            margin-bottom: 0.75rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .card-meta {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .difficulty-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        
+        .difficulty-badge.beginner {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .difficulty-badge.intermediate {
+            background: #FF9800;
+            color: white;
+        }
+        
+        .difficulty-badge.advanced {
+            background: #F44336;
+            color: white;
+        }
+        
+        .time-estimate {
+            background: #e9ecef;
+            color: #6c757d;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+        
+        .card-reason {
+            font-style: italic;
+            color: #6c757d;
+            font-size: 0.85rem;
+            margin: 0;
+        }
+        
+        .next-steps {
+            margin-top: 0.75rem;
+        }
+        
+        .next-steps h5 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .next-steps ul {
+            margin: 0;
+            padding-left: 1.2rem;
+        }
+        
+        .next-steps li {
+            font-size: 0.85rem;
+            color: #495057;
+            margin-bottom: 0.25rem;
+        }
+        
+        .action-item, .resources {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+        }
+        
+        .action-item strong, .resources strong {
+            color: #2c3e50;
+        }
+        
+        .resources ul {
+            margin: 0.25rem 0 0 1.2rem;
+        }
+        
+        .resources li {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .connection {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+        }
+        
+        @media (max-width: 768px) {
+            .recommendations-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-meta {
+                flex-direction: column;
+                align-items: flex-start;
+            }
         }
         
         /* Question Type Selector Styles */
