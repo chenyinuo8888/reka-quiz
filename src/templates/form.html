@@ -998,10 +998,54 @@
           displayQuizResults(window.currentQuiz);
         }
 
-        function generateNewQuiz() {
-          // Hide quiz results and show generate button
-          document.getElementById('quizSection').classList.remove('show');
-          document.getElementById('quizBtn').disabled = false;
+        async function generateNewQuiz() {
+          // Show loading state
+          document.getElementById('quizLoading').style.display = 'block';
+          document.getElementById('quizResults').style.display = 'none';
+          document.getElementById('quizSection').classList.add('show');
+          document.getElementById('errorMessage').classList.remove('show');
+          
+          try {
+            // Generate new quiz with the same settings
+            const response = await fetch('/api/generate_quiz', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                video_id: selectedVideoId,
+                analysis: window.currentAnalysis,
+                difficulty: 'intermediate',
+                question_types: selectedQuestionTypes.length > 0 ? selectedQuestionTypes : ['multiple_choice'],
+                user_performance: getUserPerformanceData()
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.success && data.quiz) {
+              // Store the new quiz
+              window.currentQuiz = data.quiz;
+              window.quizScore = 0;
+              
+              // Hide loading and show quiz
+              document.getElementById('quizLoading').style.display = 'none';
+              document.getElementById('quizResults').style.display = 'block';
+              displayQuizResults(data.quiz);
+            } else {
+              throw new Error(data.error || 'Failed to generate new quiz');
+            }
+          } catch (error) {
+            console.error('New quiz generation error:', error);
+            showError('Failed to generate new quiz: ' + error.message);
+            // Hide loading and show previous results
+            document.getElementById('quizLoading').style.display = 'none';
+            document.getElementById('quizResults').style.display = 'block';
+          }
         }
 
         // Export and Share functionality
@@ -2257,6 +2301,15 @@ Try Quizzly - Your AI-powered quiz generator for educational videos! 🚀
         .user-answer,
         .correct-answer {
             margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .user-answer strong,
+        .correct-answer strong {
+            min-width: 120px;
+            font-weight: 600;
         }
         
         .explanation {
@@ -2544,6 +2597,14 @@ Try Quizzly - Your AI-powered quiz generator for educational videos! 🚀
         
         .user-answer, .correct-answer {
             font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .user-answer strong, .correct-answer strong {
+            min-width: 120px;
+            font-weight: 600;
         }
         
         .user-answer .incorrect {
