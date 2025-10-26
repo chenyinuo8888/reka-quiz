@@ -245,7 +245,7 @@ def analyze_video_content(video_id: str) -> Dict[str, Any]:
         return {"error": f"Video analysis failed: {e}"}
 
 
-def generate_quiz_questions(video_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
+def generate_quiz_questions(video_id: str, analysis: Dict[str, Any], difficulty: str = 'intermediate', question_types: list = None) -> Dict[str, Any]:
     """
     Generate quiz questions based on video analysis.
     
@@ -263,30 +263,74 @@ def generate_quiz_questions(video_id: str, analysis: Dict[str, Any]) -> Dict[str
     if api_key:
         headers['X-Api-Key'] = api_key
 
+    # Set default question types if none provided
+    if question_types is None:
+        question_types = ['multiple_choice']
+    
+    # Calculate question distribution
+    total_questions = 6
+    num_types = len(question_types)
+    questions_per_type = total_questions // num_types
+    remainder = total_questions % num_types
+    
+    # Build question type distribution
+    question_distribution = {}
+    for i, q_type in enumerate(question_types):
+        count = questions_per_type + (1 if i < remainder else 0)
+        question_distribution[q_type] = count
+    
     # Build a comprehensive quiz generation prompt
     quiz_prompt = f"""
     Based on this {analysis.get('subject', 'educational')} video about {analysis.get('topic', 'the topic')}, 
-    create a comprehensive educational quiz.
+    create a comprehensive educational quiz with {difficulty} difficulty level.
     
     Video Analysis Summary:
     - Subject: {analysis.get('subject', 'Not specified')}
     - Topic: {analysis.get('topic', 'Not specified')}
-    - Difficulty: {analysis.get('difficulty', 'Not specified')}
+    - Difficulty: {difficulty}
     - Key Concepts: {', '.join(analysis.get('key_concepts', []))}
     - Learning Objectives: {', '.join(analysis.get('learning_objectives', []))}
     
-    Create a quiz with the following structure:
+    Create a quiz with EXACTLY the following question distribution:
+    {', '.join([f"{count} {q_type.replace('_', ' ').title()} questions" for q_type, count in question_distribution.items()])}
     
-    1. **Multiple Choice Questions (6 questions)**: Test understanding of key concepts
+    You MUST generate exactly these question types in this order. Do not generate all questions as multiple choice.
     
-    For each question, provide:
+    For each question type, follow these formats:
+    
+    **Multiple Choice Questions**: 
     - question_text: The question itself
-    - question_type: "multiple_choice" (all questions should be multiple choice)
+    - question_type: "multiple_choice"
     - options: Array of 4 choices (A, B, C, D)
     - correct_answer: The correct answer (just the letter, e.g., "A", "B", "C", or "D")
     - explanation: Why this answer is correct
-    - difficulty_points: 1-5 scale
-    - concept_tested: Which key concept this tests
+    
+    **True/False Questions**:
+    - question_text: The question itself
+    - question_type: "true_false"
+    - options: ["True", "False"]
+    - correct_answer: "True" or "False"
+    - explanation: Why this answer is correct
+    
+    **Short Answer Questions**:
+    - question_text: The question itself
+    - question_type: "short_answer"
+    - correct_answer: The expected answer
+    - explanation: Key points that should be included
+    
+    **Fill in the Blank Questions**:
+    - question_text: The question with [blank] where the answer goes
+    - question_type: "fill_blank"
+    - correct_answer: The word/phrase that fills the blank
+    - explanation: Why this is the correct answer
+    
+    CRITICAL INSTRUCTIONS:
+    1. Generate EXACTLY the question types and distribution specified above
+    2. Generate questions in the order specified by the distribution
+    3. For True/False questions, use options: ["True", "False"]
+    4. For Short Answer questions, do NOT include options array
+    5. For Fill in the Blank questions, do NOT include options array
+    6. Do NOT generate all questions as multiple choice - respect the specified types
     
     Return the response as a valid JSON object with this exact structure:
     {{
@@ -304,6 +348,34 @@ def generate_quiz_questions(video_id: str, analysis: Dict[str, Any]) -> Dict[str
                 "explanation": "This is correct because...",
                 "difficulty_points": 3,
                 "concept_tested": "main_concept"
+            }},
+            {{
+                "question_id": 2,
+                "question_text": "The video mentions that this concept is important. True or False?",
+                "question_type": "true_false",
+                "options": ["True", "False"],
+                "correct_answer": "True",
+                "explanation": "The video clearly states this concept is important because...",
+                "difficulty_points": 2,
+                "concept_tested": "importance"
+            }},
+            {{
+                "question_id": 3,
+                "question_text": "Explain the main principle discussed in the video.",
+                "question_type": "short_answer",
+                "correct_answer": "The main principle is...",
+                "explanation": "Key points to include: [list main points]",
+                "difficulty_points": 4,
+                "concept_tested": "main_principle"
+            }},
+            {{
+                "question_id": 4,
+                "question_text": "The key to success is [blank] according to the video.",
+                "question_type": "fill_blank",
+                "correct_answer": "persistence",
+                "explanation": "The video emphasizes that persistence is the key to success because...",
+                "difficulty_points": 3,
+                "concept_tested": "success_factors"
             }}
         ]
     }}
@@ -653,6 +725,8 @@ def generate_quiz() -> Dict[str, Any]:
     data = request.get_json() or {}
     video_id = data.get('video_id')
     analysis = data.get('analysis', {})
+    difficulty = data.get('difficulty', 'intermediate')
+    question_types = data.get('question_types', ['multiple_choice'])
 
     if not video_id:
         return jsonify({"error": "No video ID provided"}), 400
@@ -660,8 +734,11 @@ def generate_quiz() -> Dict[str, Any]:
     if not analysis:
         return jsonify({"error": "No analysis data provided. Please analyze the video first."}), 400
 
-    # Call the quiz generation function
-    quiz_data = generate_quiz_questions(video_id, analysis)
+    # Debug: print the question types being requested
+    print(f"Requested question types: {question_types}")
+    
+    # Call the quiz generation function with question types and difficulty
+    quiz_data = generate_quiz_questions(video_id, analysis, difficulty, question_types)
     
     # Debug: print the quiz_data to see what we're getting
     print(f"Quiz data received: {quiz_data}")

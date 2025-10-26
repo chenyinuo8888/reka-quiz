@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Quiz - Reka Quiz</title>
+    <title>Create Quiz - Quizzly</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- MathJax for LaTeX rendering -->
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -25,8 +25,8 @@
 <body>
     <header>
         <div class="header-content">
-            <h1>🎯 Reka Quiz</h1>
-            <p>AI-Powered Educational Quiz Generator</p>
+            <h1>🧠 Quizzly</h1>
+            <p>Your AI-Powered Quiz Generator for Educational Videos</p>
         </div>
     </header>
 
@@ -80,7 +80,7 @@
                 <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeVideo()" disabled>
                     📚 Analyze Video
                 </button>
-                <button class="btn btn-success" id="quizBtn" onclick="generateQuiz()" disabled>
+                <button class="btn btn-success" id="quizBtn" onclick="showQuestionTypeSelector()" disabled>
                     🎯 Generate Quiz
                 </button>
                 <button class="btn btn-secondary" id="watchBtn" onclick="watchVideo()" disabled>
@@ -142,8 +142,8 @@
     </div>
 
     <footer>
-        <p>Roast My Life - Built with Flask &amp; ❤️ using Reka Vision</p>
-        <p><a href="https://docs.reka.ai/vision" target="_blank" style="color:#2276FF;">Vision Docs</a> · <a href="https://link.reka.ai/free" target="_blank" style="color:#2276FF;">Get a FREE API Key</a></p>
+        <p>🧠 Quizzly - Built with Flask &amp; ❤️ using Reka Vision</p>
+        <p><a href="https://docs.reka.ai/vision" target="_blank" style="color:#2276FF;">Reka Vision Docs</a> · <a href="https://link.reka.ai/free" target="_blank" style="color:#2276FF;">Get a FREE API Key</a></p>
     </footer>
 
     <script>
@@ -444,6 +444,64 @@
           document.getElementById('quizBtn').disabled = false;
         }
 
+        // Question Type Selection Functions
+        let selectedQuestionTypes = [];
+        
+        function showQuestionTypeSelector() {
+          if (!selectedVideoId) {
+            showError('Please select a video first');
+            return;
+          }
+          
+          // Reset selections
+          selectedQuestionTypes = [];
+          document.querySelectorAll('#questionTypeModal input[type="checkbox"]').forEach(checkbox => {
+            checkbox.checked = false;
+          });
+          document.querySelectorAll('.question-type-option').forEach(option => {
+            option.classList.remove('selected');
+          });
+          document.getElementById('proceedBtn').disabled = true;
+          
+          // Show modal
+          document.getElementById('questionTypeModal').style.display = 'flex';
+        }
+        
+        function toggleQuestionType(type) {
+          const checkbox = document.getElementById(type);
+          const option = checkbox.closest('.question-type-option');
+          
+          checkbox.checked = !checkbox.checked;
+          
+          if (checkbox.checked) {
+            selectedQuestionTypes.push(type);
+            option.classList.add('selected');
+          } else {
+            selectedQuestionTypes = selectedQuestionTypes.filter(t => t !== type);
+            option.classList.remove('selected');
+          }
+          
+          // Enable/disable proceed button
+          document.getElementById('proceedBtn').disabled = selectedQuestionTypes.length === 0;
+        }
+        
+        function closeQuestionTypeModal() {
+          document.getElementById('questionTypeModal').style.display = 'none';
+        }
+        
+        async function proceedWithQuizGeneration() {
+          if (selectedQuestionTypes.length === 0) {
+            showError('Please select at least one question type');
+            return;
+          }
+          
+          // Close modal
+          closeQuestionTypeModal();
+          
+          // Proceed with quiz generation
+          await generateQuiz();
+        }
+
         // Generate quiz based on video analysis
         async function generateQuiz() {
           if (!selectedVideoId) {
@@ -469,10 +527,12 @@
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({
-                video_id: selectedVideoId,
-                analysis: window.currentAnalysis
-              })
+            body: JSON.stringify({
+              video_id: selectedVideoId,
+              analysis: window.currentAnalysis,
+              difficulty: 'intermediate',
+              question_types: selectedQuestionTypes
+            })
             });
 
             const data = await response.json();
@@ -608,15 +668,6 @@
             `;
           }
 
-          // Quiz controls
-          html += `
-            <div class="quiz-controls">
-              <button class="btn btn-secondary" id="prevBtn" onclick="previousQuestion()" disabled>← Previous</button>
-              <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">Next →</button>
-              <button class="btn btn-success" id="submitBtn" onclick="submitQuiz()" style="display: none;">Submit Quiz</button>
-            </div>
-          `;
-
           // Questions container
           html += '<div class="questions-container" id="questionsContainer">';
 
@@ -624,27 +675,82 @@
           if (quiz.questions && Array.isArray(quiz.questions) && quiz.questions.length > 0) {
             quiz.questions.forEach((question, index) => {
               html += `
-                <div class="quiz-question ${index === 0 ? 'active' : ''}" id="question-${index}" style="${index === 0 ? '' : 'display: none;'}">
-                  <div class="question-header">
-                    <div class="question-number">Question ${question.question_id || index + 1}</div>
-                    <div class="question-type">${question.question_type || 'question'}</div>
+                <div class="quiz-question ${index === 0 ? 'active' : ''}" id="question-${index}" style="${index === 0 ? '' : 'display: none;'} background: white; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2rem; margin: 1rem 0; transition: all 0.3s ease;">
+                  <div class="question-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #f0f0f0;">
+                    <div class="question-number" style="font-size: 1.5rem; font-weight: 700; color: #2c3e50; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Question ${question.question_id || index + 1}</div>
+                    <div class="question-type" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${question.question_type || 'question'}</div>
                   </div>
-                  <div class="question-text">${convertLaTeX(question.question_text)}</div>
+                  <div class="question-text" style="font-size: 1.1rem; line-height: 1.6; color: #2c3e50; margin-bottom: 2rem; font-weight: 500;">${convertLaTeX(question.question_text)}</div>
               `;
 
-              // Add options for multiple choice (all questions are now multiple choice)
-              if (question.options && Array.isArray(question.options)) {
+              // Handle different question types
+              if (question.question_type === 'multiple_choice' && question.options && Array.isArray(question.options)) {
                 html += '<div class="question-options">';
                 question.options.forEach((option, optionIndex) => {
                   const optionLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
+                  
+                  // Remove any existing letter prefix from the option text
+                  let cleanOption = option;
+                  // More comprehensive pattern to catch various formats: A), A., A) A), etc.
+                  const letterPattern = /^[A-D][\.\)]\s*[A-D][\.\)]\s*/;
+                  if (letterPattern.test(cleanOption)) {
+                    cleanOption = cleanOption.replace(letterPattern, '');
+                  } else {
+                    // Also check for single letter prefix
+                    const singleLetterPattern = /^[A-D][\.\)]\s*/;
+                    if (singleLetterPattern.test(cleanOption)) {
+                      cleanOption = cleanOption.replace(singleLetterPattern, '');
+                    }
+                  }
+                  
                   html += `
                     <div class="option-item" onclick="selectOption(${index}, ${optionIndex}, '${optionLetter}')">
                       <input type="radio" name="question-${index}" value="${optionIndex}" id="q${index}-opt${optionIndex}">
-                      <label for="q${index}-opt${optionIndex}"><strong>${optionLetter})</strong> ${convertLaTeX(option)}</label>
+                      <label for="q${index}-opt${optionIndex}"><strong>${optionLetter})</strong> ${convertLaTeX(cleanOption)}</label>
                     </div>
                   `;
                 });
                 html += '</div>';
+              } else if (question.question_type === 'true_false' && question.options && Array.isArray(question.options)) {
+                html += '<div class="question-options">';
+                question.options.forEach((option, optionIndex) => {
+                  html += `
+                    <div class="option-item" onclick="selectOption(${index}, ${optionIndex}, '${option}')">
+                      <input type="radio" name="question-${index}" value="${optionIndex}" id="q${index}-opt${optionIndex}">
+                      <label for="q${index}-opt${optionIndex}"><strong>${option}</strong></label>
+                    </div>
+                  `;
+                });
+                html += '</div>';
+              } else if (question.question_type === 'short_answer') {
+                html += `
+                  <div class="question-options">
+                    <div class="short-answer-input" style="margin-top: 1rem;">
+                      <textarea 
+                        id="short-answer-${index}" 
+                        name="question-${index}" 
+                        placeholder="Type your answer here..." 
+                        style="width: 100%; min-height: 100px; padding: 1rem; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem; resize: vertical; font-family: inherit;"
+                        onchange="selectOption(${index}, 0, this.value)"
+                      ></textarea>
+                    </div>
+                  </div>
+                `;
+              } else if (question.question_type === 'fill_blank') {
+                html += `
+                  <div class="question-options">
+                    <div class="fill-blank-input" style="margin-top: 1rem;">
+                      <input 
+                        type="text" 
+                        id="fill-blank-${index}" 
+                        name="question-${index}" 
+                        placeholder="Type your answer here..." 
+                        style="width: 100%; padding: 1rem; border: 2px solid #e9ecef; border-radius: 8px; font-size: 1rem; font-family: inherit;"
+                        onchange="selectOption(${index}, 0, this.value)"
+                      />
+                    </div>
+                  </div>
+                `;
               } else {
                 // Fallback if no options provided
                 html += '<div class="question-text">No options provided for this question</div>';
@@ -660,6 +766,15 @@
           }
 
           html += '</div>'; // Close questions container
+
+          // Quiz controls (moved below questions)
+          html += `
+            <div class="quiz-controls" style="margin-top: 2rem; display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+              <button class="btn btn-secondary" id="prevBtn" onclick="previousQuestion()" disabled style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; transition: all 0.3s ease;">← Previous</button>
+              <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()" style="background: #4CAF50; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);">Next →</button>
+              <button class="btn btn-success" id="submitBtn" onclick="submitQuiz()" style="display: none; background: #FF6B35; border: none; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);">Submit Quiz</button>
+            </div>
+          `;
 
           resultsDiv.innerHTML = html || '<div class="question-text">No quiz questions available</div>';
           
@@ -896,15 +1011,15 @@
           const correctAnswers = window.quizScore;
           const totalQuestions = window.currentQuiz.questions.length;
           
-          const shareText = `🎯 I just completed a Reka Quiz and scored ${score}% (${correctAnswers}/${totalQuestions})! 
+          const shareText = `🧠 I just completed a Quizzly quiz and scored ${score}% (${correctAnswers}/${totalQuestions})! 
           
-Try Reka Quiz - AI-powered educational quiz generator using Reka Vision API! 🚀
+Try Quizzly - Your AI-powered quiz generator for educational videos! 🚀
 
-#RekaQuiz #AI #Education #RekaVision`;
+#Quizzly #AI #Education #RekaVision`;
           
           if (navigator.share) {
             navigator.share({
-              title: 'Reka Quiz Results',
+              title: 'Quizzly Quiz Results',
               text: shareText,
               url: window.location.href
             }).catch(err => console.log('Error sharing:', err));
@@ -1526,6 +1641,33 @@ Try Reka Quiz - AI-powered educational quiz generator using Reka Vision API! �
         
         .option-item input[type="radio"] {
             margin-right: 0.5rem;
+            width: 18px;
+            height: 18px;
+            -webkit-appearance: radio;
+            -moz-appearance: radio;
+            appearance: radio;
+            cursor: pointer;
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* Ensure radio button dots are always visible */
+        .option-item input[type="radio"]:checked {
+            accent-color: #4CAF50;
+        }
+        
+        /* Force radio button to show dot when checked */
+        .option-item input[type="radio"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            z-index: 3;
         }
         
         .short-answer-input,
@@ -1780,6 +1922,86 @@ Try Reka Quiz - AI-powered educational quiz generator using Reka Vision API! �
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Question Type Selector Styles */
+        .question-type-option:hover {
+            border-color: #667eea !important;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15) !important;
+            transform: translateY(-2px);
+        }
+        
+        .question-type-option.selected {
+            border-color: #667eea !important;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%) !important;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2) !important;
+        }
+        
+        /* Footer positioning */
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            z-index: 1000;
+        }
+        
+        body {
+            padding-bottom: 120px; /* Add space for fixed footer */
+        }
     </style>
+
+    <!-- Question Type Selector Modal -->
+    <div id="questionTypeModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px; padding: 2rem;">
+            <div class="modal-header" style="text-align: center; margin-bottom: 2rem;">
+                <h2 style="color: #2c3e50; margin: 0; font-size: 1.8rem; font-weight: 700;">🎯 Choose Question Types</h2>
+                <p style="color: #6c757d; margin: 0.5rem 0 0 0; font-size: 1rem;">Select the types of questions you want in your quiz</p>
+            </div>
+            
+            <div class="question-types-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="question-type-option" onclick="toggleQuestionType('multiple_choice')" style="border: 2px solid #e9ecef; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.3s ease; background: white;">
+                    <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                        <input type="checkbox" id="multiple_choice" style="margin-right: 0.75rem; transform: scale(1.2);">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 1.1rem; font-weight: 600;">📝 Multiple Choice</h3>
+                    </div>
+                    <p style="margin: 0; color: #6c757d; font-size: 0.9rem;">Questions with 4 answer options (A, B, C, D)</p>
+                </div>
+                
+                <div class="question-type-option" onclick="toggleQuestionType('true_false')" style="border: 2px solid #e9ecef; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.3s ease; background: white;">
+                    <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                        <input type="checkbox" id="true_false" style="margin-right: 0.75rem; transform: scale(1.2);">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 1.1rem; font-weight: 600;">✅ True/False</h3>
+                    </div>
+                    <p style="margin: 0; color: #6c757d; font-size: 0.9rem;">Simple True or False questions</p>
+                </div>
+                
+                <div class="question-type-option" onclick="toggleQuestionType('short_answer')" style="border: 2px solid #e9ecef; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.3s ease; background: white;">
+                    <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                        <input type="checkbox" id="short_answer" style="margin-right: 0.75rem; transform: scale(1.2);">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 1.1rem; font-weight: 600;">✍️ Short Answer</h3>
+                    </div>
+                    <p style="margin: 0; color: #6c757d; font-size: 0.9rem;">Open-ended questions requiring written responses</p>
+                </div>
+                
+                <div class="question-type-option" onclick="toggleQuestionType('fill_blank')" style="border: 2px solid #e9ecef; border-radius: 12px; padding: 1.5rem; cursor: pointer; transition: all 0.3s ease; background: white;">
+                    <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                        <input type="checkbox" id="fill_blank" style="margin-right: 0.75rem; transform: scale(1.2);">
+                        <h3 style="margin: 0; color: #2c3e50; font-size: 1.1rem; font-weight: 600;">🔤 Fill in the Blank</h3>
+                    </div>
+                    <p style="margin: 0; color: #6c757d; font-size: 0.9rem;">Complete the sentence with missing words</p>
+                </div>
+            </div>
+            
+            <div class="modal-actions" style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="closeQuestionTypeModal()" class="btn btn-secondary" style="padding: 0.75rem 1.5rem; border-radius: 8px;">Cancel</button>
+                <button onclick="proceedWithQuizGeneration()" class="btn btn-primary" id="proceedBtn" disabled style="padding: 0.75rem 1.5rem; border-radius: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; color: white; font-weight: 600;">Generate Quiz</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
