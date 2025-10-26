@@ -68,7 +68,11 @@
                     <button class="delete-btn" data-video-id="{{ video.id }}" title="Delete video">🗑️</button>
                 </div>
                 {% else %}
-                <p>No videos available. Check API configuration.</p>
+                <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">📹</div>
+                    <h3 style="color: #203F72; margin-bottom: 0.5rem;">No videos available</h3>
+                    <p style="color: #6c757d; margin-bottom: 1.5rem;">Add your first educational video to get started!</p>
+                </div>
                 {% endfor %}
             </div>
 
