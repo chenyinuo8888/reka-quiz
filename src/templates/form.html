@@ -461,8 +461,18 @@
               document.getElementById('quizLoading').style.display = 'none';
               document.getElementById('quizResults').style.display = 'block';
               
+              // Debug: log the quiz data
+              console.log('Quiz data received:', data.quiz);
+              console.log('Quiz data type:', typeof data.quiz);
+              console.log('Quiz has questions:', data.quiz && data.quiz.questions);
+              
               // Display the quiz results
-              displayQuizResults(data.quiz);
+              try {
+                displayQuizResults(data.quiz);
+              } catch (displayError) {
+                console.error('Error in displayQuizResults:', displayError);
+                showError('Error displaying quiz: ' + displayError.message);
+              }
             } else {
               // Hide loading and show error
               document.getElementById('quizLoading').style.display = 'none';
@@ -470,6 +480,8 @@
             }
           } catch (error) {
             document.getElementById('quizLoading').style.display = 'none';
+            console.error('Quiz generation error:', error);
+            console.error('Error stack:', error.stack);
             showError('Failed to connect to quiz API: ' + error.message);
           } finally {
             // Re-enable button
@@ -481,12 +493,39 @@
         function displayQuizResults(quiz) {
           const resultsDiv = document.getElementById('quizResults');
           
+          // Debug: log the quiz structure
+          console.log('Displaying quiz:', quiz);
+          console.log('Quiz type:', typeof quiz);
+          console.log('Quiz keys:', quiz ? Object.keys(quiz) : 'quiz is null/undefined');
+          
           // Handle both structured and raw responses
-          if (quiz.raw_response) {
+          if (quiz && quiz.raw_response) {
             // If we got a raw response, display it nicely
             resultsDiv.innerHTML = `
               <div class="quiz-question">
                 <div class="question-text">${quiz.raw_response}</div>
+              </div>
+            `;
+            return;
+          }
+          
+          // Check if quiz has the expected structure
+          if (!quiz || typeof quiz !== 'object') {
+            console.error('Invalid quiz data:', quiz);
+            resultsDiv.innerHTML = `
+              <div class="quiz-question">
+                <div class="question-text">Error: Invalid quiz data received</div>
+              </div>
+            `;
+            return;
+          }
+          
+          // Check if quiz has questions
+          if (!quiz.questions) {
+            console.error('Quiz missing questions property:', quiz);
+            resultsDiv.innerHTML = `
+              <div class="quiz-question">
+                <div class="question-text">Error: Quiz data missing questions</div>
               </div>
             `;
             return;
@@ -547,7 +586,7 @@
           html += '<div class="questions-container" id="questionsContainer">';
 
           // Questions
-          if (quiz.questions && Array.isArray(quiz.questions)) {
+          if (quiz.questions && Array.isArray(quiz.questions) && quiz.questions.length > 0) {
             quiz.questions.forEach((question, index) => {
               html += `
                 <div class="quiz-question ${index === 0 ? 'active' : ''}" id="question-${index}" style="${index === 0 ? '' : 'display: none;'}">
@@ -558,40 +597,31 @@
                   <div class="question-text">${question.question_text}</div>
               `;
 
-              // Add options for multiple choice
-              if (question.question_type === 'multiple_choice' && question.options) {
+              // Add options for multiple choice (all questions are now multiple choice)
+              if (question.options && Array.isArray(question.options)) {
                 html += '<div class="question-options">';
                 question.options.forEach((option, optionIndex) => {
+                  const optionLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
                   html += `
-                    <div class="option-item" onclick="selectOption(${index}, ${optionIndex}, '${option.replace(/'/g, "\\'")}')">
+                    <div class="option-item" onclick="selectOption(${index}, ${optionIndex}, '${optionLetter}')">
                       <input type="radio" name="question-${index}" value="${optionIndex}" id="q${index}-opt${optionIndex}">
-                      <label for="q${index}-opt${optionIndex}">${option}</label>
+                      <label for="q${index}-opt${optionIndex}"><strong>${optionLetter})</strong> ${option}</label>
                     </div>
                   `;
                 });
                 html += '</div>';
+              } else {
+                // Fallback if no options provided
+                html += '<div class="question-text">No options provided for this question</div>';
               }
 
-              // Add text input for short answer
-              if (question.question_type === 'short_answer') {
-                html += `
-                  <div class="short-answer-input">
-                    <textarea id="shortAnswer-${index}" placeholder="Type your answer here..." rows="3"></textarea>
-                  </div>
-                `;
-              }
-
-              // Add text input for problem solving
-              if (question.question_type === 'problem_solving') {
-                html += `
-                  <div class="problem-solving-input">
-                    <textarea id="problemAnswer-${index}" placeholder="Show your work and provide your answer..." rows="5"></textarea>
-                  </div>
-                `;
-              }
+              // All questions are now multiple choice only
 
               html += '</div>';
             });
+          } else {
+            // No questions available
+            html += '<div class="quiz-question"><div class="question-text">No quiz questions available</div></div>';
           }
 
           html += '</div>'; // Close questions container
