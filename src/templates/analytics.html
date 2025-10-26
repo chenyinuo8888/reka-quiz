@@ -72,47 +72,6 @@
                 </div>
             </div>
 
-            <!-- Topic Performance -->
-            <div class="analytics-section">
-                <h3>📚 Topic Performance Analysis</h3>
-                <div class="topic-analysis">
-                    <div class="chart-container">
-                        <canvas id="topicChart"></canvas>
-                    </div>
-                    <div class="topic-recommendations" id="topicRecommendations">
-                        <!-- Dynamic recommendations will be added here -->
-                    </div>
-                </div>
-                
-                <!-- Difficulty Analysis -->
-                <div class="difficulty-analysis">
-                    <h4>🎯 Difficulty Breakdown</h4>
-                    <div class="difficulty-grid" id="difficultyGrid">
-                        <!-- Dynamic difficulty analysis will be added here -->
-                    </div>
-                </div>
-                
-                <!-- Topic Mastery -->
-                <div class="topic-mastery">
-                    <h4>🏆 Topic Mastery Progress</h4>
-                    <div class="mastery-grid" id="masteryGrid">
-                        <!-- Dynamic mastery progress will be added here -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Learning Paths -->
-            <div class="analytics-section">
-                <h3>🛤️ Your Learning Path</h3>
-                <div class="learning-paths-container">
-                    <div class="path-recommendations" id="pathRecommendations">
-                        <!-- Dynamic learning recommendations will be added here -->
-                    </div>
-                    <div class="learning-goals" id="learningGoals">
-                        <!-- Learning goals and milestones will be added here -->
-                    </div>
-                </div>
-            </div>
 
             <!-- Achievements -->
             <div class="analytics-section">
@@ -122,13 +81,6 @@
                 </div>
             </div>
 
-            <!-- Learning Insights -->
-            <div class="analytics-section">
-                <h3>💡 Learning Insights</h3>
-                <div class="insights-container" id="insightsContainer">
-                    <!-- Dynamic insights will be added here -->
-                </div>
-            </div>
         </div>
     </div>
 
@@ -658,7 +610,21 @@
             loadPerformanceData() {
                 const data = localStorage.getItem('quizzly_analytics');
                 if (data) {
-                    return JSON.parse(data);
+                    const parsed = JSON.parse(data);
+                    console.log('Loaded analytics data:', parsed);
+                    
+                    // Calculate stats from quiz data
+                    const quizzes = parsed.quizzes || [];
+                    const totalQuizzes = quizzes.length;
+                    const averageScore = totalQuizzes > 0 ? quizzes.reduce((sum, q) => sum + q.score, 0) / totalQuizzes : 0;
+                    
+                    return {
+                        quizzes: quizzes,
+                        topics: parsed.topics || {},
+                        streak: parsed.streak || 0,
+                        totalQuizzes: totalQuizzes,
+                        averageScore: averageScore
+                    };
                 }
                 return {
                     quizzes: [],
@@ -694,13 +660,16 @@
 
             initializeCharts() {
                 this.createPerformanceChart();
-                this.createTopicChart();
+                // this.createTopicChart(); // Disabled for presentation
             }
 
             createPerformanceChart() {
                 const ctx = document.getElementById('performanceChart').getContext('2d');
-                const labels = this.performanceData.quizzes.map((_, index) => `Quiz ${index + 1}`);
-                const scores = this.performanceData.quizzes.map(quiz => quiz.score);
+                const quizzes = this.performanceData.quizzes || [];
+                const labels = quizzes.map((_, index) => `Quiz ${index + 1}`);
+                const scores = quizzes.map(quiz => quiz.score);
+                
+                console.log('Creating performance chart with data:', { quizzes, labels, scores });
 
                 new Chart(ctx, {
                     type: 'line',
@@ -773,11 +742,11 @@
                 });
                 
                 // Render difficulty analysis and topic mastery
-                this.renderDifficultyAnalysis();
-                this.renderTopicMastery();
+                // this.renderDifficultyAnalysis(); // Disabled for presentation
+                // this.renderTopicMastery(); // Disabled for presentation
                 
                 // Render learning paths
-                this.renderLearningPaths();
+                // this.renderLearningPaths(); // Disabled for presentation
             }
             
             renderDifficultyAnalysis() {
