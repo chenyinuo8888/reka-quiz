@@ -158,6 +158,7 @@ nav ul li a.active {
     cursor: pointer;
     transition: all 0.3s ease;
     border: 3px solid transparent;
+    position: relative;
 }
 
 .image-card:hover {
