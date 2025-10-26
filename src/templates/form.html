@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Quiz - Reka Quiz</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- MathJax for LaTeX rendering -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
 </head>
 <body>
     <header>
@@ -35,20 +51,21 @@
                     <h3>Add Video</h3>
                 </div>
                 {% for video in videos %}
-                <div class="image-card" data-id="{{ video.id }}" data-url="{{ video.url }}" onclick="selectVideo('{{ video.id }}')">
+                <div class="image-card" data-id="{{ video.id }}" data-url="{{ video.url }}">
                     {% if video.thumbnail %}
-                    <img src="{{ video.thumbnail }}" alt="{{ video.name }}" onerror="this.parentElement.querySelector('.thumbnail-placeholder').style.display='flex'; this.style.display='none';">
+                    <img src="{{ video.thumbnail }}" alt="{{ video.name }}" onerror="this.parentElement.querySelector('.thumbnail-placeholder').style.display='flex'; this.style.display='none';" onclick="selectVideo('{{ video.id }}')">
                     <div class="thumbnail-placeholder" style="display: none;">
                         <div class="thumbnail-spinner"></div>
                         <p>Processing...</p>
                     </div>
                     {% else %}
-                    <div class="thumbnail-placeholder">
+                    <div class="thumbnail-placeholder" onclick="selectVideo('{{ video.id }}')">
                         <div class="thumbnail-spinner"></div>
                         <p>Processing...</p>
                     </div>
                     {% endif %}
-                    <h3>{{ video.name }}</h3>
+                    <h3 onclick="selectVideo('{{ video.id }}')">{{ video.name }}</h3>
+                    <button class="delete-btn" data-video-id="{{ video.id }}" title="Delete video">üóëÔ∏è</button>
                 </div>
                 {% else %}
                 <p>No videos available. Check API configuration.</p>
@@ -348,7 +365,7 @@
           if (analysis.key_concepts && Array.isArray(analysis.key_concepts)) {
             html += `
               <div class="analysis-item">
-                <div class="analysis-label">üîë Key Concepts</div>
+                <div class="analysis-label">Key Concepts</div>
                 <div class="analysis-concepts">
                   ${analysis.key_concepts.map(concept => 
                     `<span class="concept-tag">${concept}</span>`
@@ -489,9 +506,23 @@
           }
         }
 
+        // Helper function to convert backticks to MathJax delimiters
+        function convertLaTeX(text) {
+          if (!text) return text;
+          // Convert backticks to $ for inline math
+          return text.replace(/`([^`]+)`/g, '\\($1\\)');
+        }
+
         // Display quiz results in a formatted way
         function displayQuizResults(quiz) {
           const resultsDiv = document.getElementById('quizResults');
+          
+          // Safety check: ensure quiz data exists
+          if (!quiz) {
+            console.error('ERROR: Quiz data is undefined');
+            resultsDiv.innerHTML = '<div class="quiz-question"><div class="question-text">Error: No quiz data received</div></div>';
+            return;
+          }
           
           // Debug: log the quiz structure
           console.log('Displaying quiz:', quiz);
@@ -594,7 +625,7 @@
                     <div class="question-number">Question ${question.question_id || index + 1}</div>
                     <div class="question-type">${question.question_type || 'question'}</div>
                   </div>
-                  <div class="question-text">${question.question_text}</div>
+                  <div class="question-text">${convertLaTeX(question.question_text)}</div>
               `;
 
               // Add options for multiple choice (all questions are now multiple choice)
@@ -605,7 +636,7 @@
                   html += `
                     <div class="option-item" onclick="selectOption(${index}, ${optionIndex}, '${optionLetter}')">
                       <input type="radio" name="question-${index}" value="${optionIndex}" id="q${index}-opt${optionIndex}">
-                      <label for="q${index}-opt${optionIndex}"><strong>${optionLetter})</strong> ${option}</label>
+                      <label for="q${index}-opt${optionIndex}"><strong>${optionLetter})</strong> ${convertLaTeX(option)}</label>
                     </div>
                   `;
                 });
@@ -627,6 +658,13 @@
           html += '</div>'; // Close questions container
 
           resultsDiv.innerHTML = html || '<div class="question-text">No quiz questions available</div>';
+          
+          // Trigger MathJax to render LaTeX after DOM update
+          if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+            MathJax.typesetPromise([resultsDiv]).catch(function (err) {
+              console.error('MathJax rendering error:', err);
+            });
+          }
         }
 
         // Interactive quiz functions
@@ -720,10 +758,10 @@
           const score = Math.round((correctAnswers / totalQuestions) * 100);
           
           // Display results
-          displayQuizResults(score, correctAnswers, totalQuestions);
+          displayQuizResultsSummary(score, correctAnswers, totalQuestions);
         }
 
-        function displayQuizResults(score, correctAnswers, totalQuestions) {
+        function displayQuizResultsSummary(score, correctAnswers, totalQuestions) {
           const resultsDiv = document.getElementById('quizResults');
           
           let html = `
@@ -756,15 +794,15 @@
                   <span class="question-number">Q${index + 1}</span>
                   <span class="result-status">${isCorrect ? '‚úÖ Correct' : '‚ùå Incorrect'}</span>
                 </div>
-                <div class="result-question-text">${question.question_text}</div>
+                <div class="result-question-text">${convertLaTeX(question.question_text)}</div>
                 <div class="result-answers">
                   <div class="user-answer">
-                    <strong>Your Answer:</strong> ${userAnswer}
+                    <strong>Your Answer:</strong> ${convertLaTeX(userAnswer)}
                   </div>
                   <div class="correct-answer">
-                    <strong>Correct Answer:</strong> ${question.correct_answer}
+                    <strong>Correct Answer:</strong> ${convertLaTeX(question.correct_answer)}
                   </div>
-                  ${question.explanation ? `<div class="explanation"><strong>Explanation:</strong> ${question.explanation}</div>` : ''}
+                  ${question.explanation ? `<div class="explanation"><strong>Explanation:</strong> ${convertLaTeX(question.explanation)}</div>` : ''}
                 </div>
               </div>
             `;
@@ -783,6 +821,13 @@
           `;
           
           resultsDiv.innerHTML = html;
+          
+          // Trigger MathJax to render LaTeX after DOM update
+          if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+            MathJax.typesetPromise([resultsDiv]).catch(function (err) {
+              console.error('MathJax rendering error:', err);
+            });
+          }
         }
 
         function retakeQuiz() {
@@ -940,6 +985,51 @@ Try Reka Quiz - AI-powered educational quiz generator using Reka Vision API! üö
           errorElement.classList.add('show');
         }
 
+        // Delete a video
+        async function deleteVideo(videoId, event) {
+          console.log('Delete button clicked for video:', videoId);
+          
+          // Stop event propagation to prevent selecting the video
+          if (event) {
+            event.stopPropagation();
+          }
+
+          // Confirm deletion
+          if (!confirm('Are you sure you want to delete this video?')) {
+            console.log('Delete cancelled by user');
+            return;
+          }
+
+          console.log('Sending delete request for video:', videoId);
+
+          try {
+            const response = await fetch('/api/delete_video', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                video_id: videoId
+              })
+            });
+
+            const data = await response.json();
+            console.log('Delete response:', data);
+
+            if (response.ok && data.success) {
+              console.log('Video deleted successfully, reloading page...');
+              // Reload the page to refresh the video list
+              location.reload();
+            } else {
+              console.error('Delete failed:', data.error);
+              showError(data.error || 'Failed to delete video');
+            }
+          } catch (error) {
+            console.error('Delete error:', error);
+            showError('Failed to connect to delete API: ' + error.message);
+          }
+        }
+
         // Open the selected video in a new tab
         function watchVideo() {
           if (!selectedVideoUrl || selectedVideoUrl.trim() === '') {
@@ -948,6 +1038,22 @@ Try Reka Quiz - AI-powered educational quiz generator using Reka Vision API! üö
           }
           window.open(selectedVideoUrl, '_blank');
         }
+
+        // Initialize delete button event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+          console.log('Initializing delete buttons...');
+          const deleteButtons = document.querySelectorAll('.delete-btn');
+          console.log('Found', deleteButtons.length, 'delete buttons');
+          
+          deleteButtons.forEach(button => {
+            button.addEventListener('click', function(event) {
+              event.stopPropagation();
+              const videoId = this.getAttribute('data-video-id');
+              console.log('Delete button clicked for video:', videoId);
+              deleteVideo(videoId, event);
+            });
+          });
+        });
 
     </script>
 
@@ -1044,6 +1150,31 @@ Try Reka Quiz - AI-powered educational quiz generator using Reka Vision API! üö
         }
         .btn-secondary:hover:not(:disabled) {
             background: #5A6268;
+        }
+        
+        /* Delete Button Styles */
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        
+        .delete-btn:hover {
+            background: rgba(220, 53, 69, 1);
+            transform: scale(1.1);
         }
         .button-container {
             display: flex;

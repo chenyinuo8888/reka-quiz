@@ -26,6 +26,9 @@ _VIDEO_CACHE: Dict[str, Any] = {
     "results": []
 }
 
+# Track deleted video IDs to filter them out
+_DELETED_VIDEOS: set[str] = set()
+
 
 def fetch_videos() -> List[Dict[str, Any]]:
     """
@@ -55,6 +58,10 @@ def fetch_videos() -> List[Dict[str, Any]]:
         response.raise_for_status()
         data = response.json()
         results = data.get("results", [])
+        
+        # Filter out deleted videos
+        results = [video for video in results if video.get("video_id") not in _DELETED_VIDEOS]
+        
         _VIDEO_CACHE.update({
             "timestamp": now,
             "results": results
@@ -437,6 +444,52 @@ def upload_video() -> Dict[str, Any]:
         return jsonify({"success": False, "error": "Request timed out"}), 504
     except Exception as e:
         return jsonify({"success": False, "error": f"Upload failed: {str(e)}"}), 500
+
+
+@app.route('/api/delete_video', methods=['POST'])
+def delete_video() -> Dict[str, Any]:
+    """
+    Delete a video from the Reka Vision API.
+    
+    Expects JSON body: { "video_id": "uuid" }
+    
+    Returns:
+        Dict[str, Any]: JSON response with success status
+    """
+    data = request.get_json() or {}
+    video_id = data.get('video_id')
+
+    if not video_id:
+        return jsonify({"error": "No video ID provided"}), 400
+
+    if not api_key:
+        return jsonify({"error": "API key not configured"}), 500
+
+    # Note: The Reka API doesn't support deleting videos through their API
+    # This is a local implementation that filters out deleted videos
+    # The video will still exist in the Reka backend but won't show in the UI
+    
+    try:
+        # Add video ID to the deleted set
+        _DELETED_VIDEOS.add(video_id)
+        
+        # Remove the video from the cache if it exists
+        if _VIDEO_CACHE.get("results"):
+            _VIDEO_CACHE["results"] = [
+                video for video in _VIDEO_CACHE["results"] 
+                if video.get("video_id") != video_id
+            ]
+        
+        # Invalidate cache to force refresh
+        _VIDEO_CACHE["timestamp"] = 0.0
+        
+        return jsonify({
+            "success": True, 
+            "message": "Video deleted successfully"
+        })
+    
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Delete failed: {str(e)}"}), 500
 
 
 @app.route('/api/analyze', methods=['POST'])
