@@ -1187,4 +1187,9 @@ def generate_quiz() -> Dict[str, Any]:
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    # Use PORT environment variable for deployment (Render, Railway, etc.)
+    # Default to 5001 for local development
+    port = int(os.environ.get('PORT', 5001))
+    # Disable debug mode in production
+    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)

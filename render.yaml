@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: reka-quiz
+    env: python
+    buildCommand: cd src && pip install -r requirements.txt
+    startCommand: cd src && python app.py
+    envVars:
+      - key: API_KEY
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: REKA_VIDEO_QA_ENDPOINT
+        sync: false
+      - key: FLASK_DEBUG
+        value: "False"
+      - key: PORT
+        fromService:
+          type: web
+          name: reka-quiz
+          property: port
+
